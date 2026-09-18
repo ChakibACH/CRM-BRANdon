@@ -352,7 +352,11 @@
           <p class="text-sm font-semibold text-slate-700 mb-4">Add a Product to Catalog</p>
           <p class="text-xs text-slate-500 -mt-3 mb-4">Restocking an existing product (same name)? Just add it again with the new quantity and purchase price — each batch is logged automatically, no need to edit anything by hand.</p>
           <form id="form-add-product" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
-            <div><label class="field-label">Product Name</label><input required type="text" name="name" class="field-input"></div>
+            <div>
+              <label class="field-label">Product Name</label>
+              <input required type="text" name="name" id="add-product-name" list="existing-products-list" class="field-input" placeholder="Start typing to see existing products…" autocomplete="off">
+              <datalist id="existing-products-list"></datalist>
+            </div>
             <div>
               <label class="field-label">Category</label>
               <select id="add-product-category" name="category" class="field-input">
@@ -659,6 +663,7 @@ async function bootDashboard(session) {
   initSearchEvents();
   initDateFilterEvents();
   initCategorySelects();
+  initProductNameAutofill();
 
   try {
     await Promise.all([fetchProducts(), fetchContacts()]);
@@ -1005,6 +1010,7 @@ async function fetchProducts() {
   populateProductSelects();
   renderStockAlert();
   refreshCategorySelects();
+  populateExistingProductsDatalist();
 }
 
 function renderStocksTable() {
@@ -1042,6 +1048,29 @@ function populateProductSelects() {
   const options = productsCache.map((p) => `<option value="${p.id}" data-price="${p.unit_price}">${p.name} (ID: ${fmtId(p.id)})</option>`).join('');
   document.getElementById('sale-item-product').innerHTML = options;
   syncPriceField('sale-item-product', 'sale-item-price');
+}
+
+// Autocomplete on "Add a Product" name field: suggests existing product
+// names so restocking one is a couple of keystrokes, and auto-fills its
+// category + selling price once the typed name matches exactly (purchase
+// price and quantity are left for the new batch being added).
+function populateExistingProductsDatalist() {
+  const list = document.getElementById('existing-products-list');
+  if (!list) return;
+  list.innerHTML = productsCache.map((p) => `<option value="${escapeHtml(p.name)}"></option>`).join('');
+}
+
+function handleProductNameAutofill(e) {
+  const typed = e.target.value.trim().toLowerCase();
+  const match = productsCache.find((p) => p.name.toLowerCase() === typed);
+  if (!match) return;
+  const form = e.target.form;
+  populateCategorySelect(document.getElementById('add-product-category'), match.category || 'Accessories');
+  form.unit_price.value = match.unit_price;
+}
+
+function initProductNameAutofill() {
+  document.getElementById('add-product-name').addEventListener('change', handleProductNameAutofill);
 }
 
 // Product Categories — dynamic list (base categories + any category already
