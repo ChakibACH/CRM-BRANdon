@@ -66,9 +66,6 @@
       <button class="nav-btn" data-tab="clients">
         <i data-lucide="users" class="h-4 w-4"></i> Leads & Clients
       </button>
-      <button class="nav-btn" data-tab="suppliers">
-        <i data-lucide="truck" class="h-4 w-4"></i> Suppliers & Purchases
-      </button>
       <button class="nav-btn" data-tab="invoices">
         <i data-lucide="file-text" class="h-4 w-4"></i> Invoices & Transactions
       </button>
@@ -312,82 +309,6 @@
         </div>
       </section>
 
-      <!-- ===================== SUPPLIERS & PURCHASES TAB ===================== -->
-      <section id="tab-suppliers" class="tab-section hidden space-y-6">
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="panel p-4 sm:p-5">
-            <p class="text-sm font-semibold text-slate-700 mb-4">Add a Supplier</p>
-            <form id="form-add-supplier" class="space-y-3">
-              <div><label class="field-label">Company / Name</label><input required type="text" name="name" class="field-input"></div>
-              <div><label class="field-label">Email</label><input type="email" name="email" class="field-input"></div>
-              <div><label class="field-label">Phone</label><input type="tel" name="phone" class="field-input"></div>
-              <div><label class="field-label">Address</label><input type="text" name="address" class="field-input"></div>
-              <button type="submit" class="btn-primary w-full"><i data-lucide="user-plus" class="h-4 w-4"></i> Save Supplier</button>
-            </form>
-          </div>
-
-          <div class="panel p-4 sm:p-5">
-            <p class="text-sm font-semibold text-slate-700 mb-4">New Purchase Order</p>
-            <form id="form-purchase-header" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-              <div class="sm:col-span-2">
-                <label class="field-label">Supplier</label>
-                <select id="purchase-supplier" required class="field-input"><option value="">Select a supplier...</option></select>
-              </div>
-              <div class="sm:col-span-2">
-                <label class="field-label">Invoice / Order No.</label>
-                <input id="purchase-invoice" type="text" class="field-input" placeholder="Auto-generated if left blank">
-              </div>
-            </form>
-
-            <div class="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end mb-3">
-              <div class="sm:col-span-3">
-                <label class="field-label">Product</label>
-                <select id="purchase-item-product" class="field-input"></select>
-              </div>
-              <div class="sm:col-span-1">
-                <label class="field-label">Qty</label>
-                <input id="purchase-item-qty" type="number" min="1" value="1" class="field-input">
-              </div>
-              <div class="sm:col-span-1">
-                <label class="field-label">Unit Cost</label>
-                <input id="purchase-item-price" type="number" min="0" step="0.01" class="field-input">
-              </div>
-              <div class="sm:col-span-1">
-                <button type="button" id="purchase-add-item" class="btn-secondary w-full mt-2 sm:mt-0"><i data-lucide="plus" class="h-4 w-4"></i></button>
-              </div>
-            </div>
-
-            <div class="overflow-x-auto">
-              <table class="data-table mb-3">
-                <thead><tr><th>ID</th><th>Product</th><th>Qty</th><th>Unit Cost</th><th>Subtotal</th><th></th></tr></thead>
-                <tbody id="purchase-cart-body"></tbody>
-              </table>
-            </div>
-            <div class="flex items-center justify-between border-t border-slate-100 pt-3">
-              <span class="text-sm text-slate-500">Total</span>
-              <span id="purchase-cart-total" class="text-lg font-semibold text-slate-700">$0.00</span>
-            </div>
-            <button id="purchase-validate" disabled class="btn-primary w-full mt-3 disabled:opacity-40 disabled:cursor-not-allowed">
-              <i data-lucide="check" class="h-4 w-4"></i> Confirm Purchase
-            </button>
-          </div>
-        </div>
-
-        <div class="panel p-4 sm:p-5">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <p class="text-sm font-semibold text-slate-700">Suppliers Directory</p>
-            <input type="text" id="suppliers-search-input" placeholder="Search suppliers..." class="field-input w-full sm:!w-64">
-          </div>
-          <div class="overflow-x-auto">
-            <table id="suppliers-table" class="data-table">
-              <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Address</th><th>Actions</th></tr></thead>
-              <tbody id="suppliers-list-body"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
       <!-- ===================== INVOICES / TRANSACTIONS TAB ===================== -->
       <section id="tab-invoices" class="tab-section hidden space-y-6">
         <div class="panel p-4 sm:p-5">
@@ -401,7 +322,7 @@
               <select id="invoices-filter-type-input" class="field-input w-full sm:!w-auto">
                 <option value="all">All types</option>
                 <option value="vente">Sales / Clients</option>
-                <option value="achat">Purchases / Suppliers</option>
+                <option value="achat">Purchases / Restocking</option>
               </select>
             </div>
           </div>
@@ -429,7 +350,8 @@
 
         <div class="panel p-4 sm:p-5">
           <p class="text-sm font-semibold text-slate-700 mb-4">Add a Product to Catalog</p>
-          <form id="form-add-product" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+          <p class="text-xs text-slate-500 -mt-3 mb-4">Restocking an existing product (same name)? Just add it again with the new quantity and purchase price — each batch is logged automatically, no need to edit anything by hand.</p>
+          <form id="form-add-product" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
             <div><label class="field-label">Product Name</label><input required type="text" name="name" class="field-input"></div>
             <div>
               <label class="field-label">Category</label>
@@ -442,9 +364,10 @@
                 <option value="__new__">+ Add new category…</option>
               </select>
             </div>
-            <div><label class="field-label">Initial Stock</label><input required type="number" min="0" name="stock_quantity" value="0" class="field-input"></div>
-            <div><label class="field-label">Unit Price ($)</label><input required type="number" min="0" step="0.01" name="unit_price" class="field-input"></div>
-            <div class="sm:col-span-2 lg:col-span-3">
+            <div><label class="field-label">Quantity Bought</label><input required type="number" min="0" name="stock_quantity" value="0" class="field-input"></div>
+            <div><label class="field-label">Purchase Price ($/unit)</label><input required type="number" min="0" step="0.01" name="purchase_price" class="field-input" placeholder="e.g. 900"></div>
+            <div><label class="field-label">Selling Price ($/unit)</label><input required type="number" min="0" step="0.01" name="unit_price" class="field-input" placeholder="e.g. 1200"></div>
+            <div class="sm:col-span-2 lg:col-span-4">
               <label class="field-label">Description (shown on the storefront)</label>
               <textarea name="description" rows="2" class="field-input" placeholder="Short product description for the website"></textarea>
             </div>
@@ -452,7 +375,7 @@
               <label class="field-label">Photo</label>
               <input type="file" name="image" accept="image/*" class="field-input !py-1.5">
             </div>
-            <button type="submit" class="btn-primary w-full lg:col-span-4"><i data-lucide="package-plus" class="h-4 w-4"></i> Add Product</button>
+            <button type="submit" class="btn-primary w-full lg:col-span-5"><i data-lucide="package-plus" class="h-4 w-4"></i> Add Product</button>
           </form>
         </div>
 
@@ -720,7 +643,6 @@ let pipelineCache = [];
 let allInvoicesCache = [];
 let editInvoiceItemsCache = [];
 let saleCart = [];
-let purchaseCart = [];
 let financeChart = null;
 let productChart = null;
 let topClientsChart = null;
@@ -837,7 +759,6 @@ async function runFullRefresh() {
 const pageTitles = {
   dashboard: 'Dashboard',
   clients: 'Leads & Clients',
-  suppliers: 'Suppliers & Purchases',
   invoices: 'Invoices & Transactions',
   stocks: 'Inventory Management',
   pipeline: 'Sales Pipeline'
@@ -861,7 +782,6 @@ function initSearchEvents() {
   document.getElementById('invoices-filter-type-input').addEventListener('change', renderAllInvoicesTable);
   document.getElementById('invoices-search-input').addEventListener('input', () => filterTableRows('invoices-search-input', 'invoices-table'));
   document.getElementById('clients-search-input').addEventListener('input', () => filterTableRows('clients-search-input', 'clients-table'));
-  document.getElementById('suppliers-search-input').addEventListener('input', () => filterTableRows('suppliers-search-input', 'suppliers-table'));
   document.getElementById('products-search-input').addEventListener('input', () => filterTableRows('products-search-input', 'stocks-table'));
   document.getElementById('pipeline-search-input').addEventListener('input', filterPipelineCards);
 }
@@ -1121,9 +1041,7 @@ function renderStocksTable() {
 function populateProductSelects() {
   const options = productsCache.map((p) => `<option value="${p.id}" data-price="${p.unit_price}">${p.name} (ID: ${fmtId(p.id)})</option>`).join('');
   document.getElementById('sale-item-product').innerHTML = options;
-  document.getElementById('purchase-item-product').innerHTML = options;
   syncPriceField('sale-item-product', 'sale-item-price');
-  syncPriceField('purchase-item-product', 'purchase-item-price');
 }
 
 // Product Categories — dynamic list (base categories + any category already
@@ -1254,7 +1172,6 @@ async function fetchContacts() {
 
 async function renderContactsTables() {
   const clientLeads = contactsCache.filter((c) => c.type === 'client' || c.type === 'lead');
-  const suppliers = contactsCache.filter((c) => c.type === 'fournisseur');
 
   // Fetch the latest invoice linked to each contact to display it next to the Lead
   const { data: leadInvoices } = await _supabase.from('transactions').select('id, invoice_number, contact_id').eq('type', 'vente');
@@ -1285,30 +1202,13 @@ async function renderContactsTables() {
     </tr>`;
   }).join('') || `<tr><td colspan="8" class="text-slate-400 text-center py-4">No leads or clients</td></tr>`;
 
-  document.getElementById('suppliers-list-body').innerHTML = suppliers.map((c) => `
-    <tr>
-      <td class="font-mono text-xs text-slate-500">${fmtId(c.id)}</td>
-      <td class="font-medium">${c.name}</td>
-      <td>${c.email || '—'}</td>
-      <td>${c.phone || '—'}</td>
-      <td>${c.address || '—'}</td>
-      <td class="flex gap-1">
-        <button onclick="openEditContactModal('${c.id}')" class="btn-secondary text-xs !py-1 !px-2"><i data-lucide="edit-3" class="h-3.5 w-3.5"></i></button>
-        <button onclick="deleteContact('${c.id}')" class="btn-danger text-xs !py-1 !px-2"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
-      </td>
-    </tr>`).join('') || `<tr><td colspan="6" class="text-slate-400 text-center py-4">No suppliers</td></tr>`;
-
   filterTableRows('clients-search-input', 'clients-table');
-  filterTableRows('suppliers-search-input', 'suppliers-table');
   lucide.createIcons();
 }
 
 function populateContactSelects() {
   const clientLeads = contactsCache.filter((c) => c.type === 'client' || c.type === 'lead');
-  const suppliers = contactsCache.filter((c) => c.type === 'fournisseur');
-
   document.getElementById('sale-client').innerHTML = '<option value="">Select a Lead / Client...</option>' + clientLeads.map((c) => `<option value="${c.id}">${c.name} (ID: ${fmtId(c.id)}) [${c.type.toUpperCase()}]</option>`).join('');
-  document.getElementById('purchase-supplier').innerHTML = '<option value="">Select a supplier...</option>' + suppliers.map((c) => `<option value="${c.id}">${c.name} (ID: ${fmtId(c.id)})</option>`).join('');
 }
 
 function openEditContactModal(contactId) {
@@ -1341,6 +1241,17 @@ document.getElementById('form-edit-contact').addEventListener('submit', async (e
 
 async function deleteContact(id) {
   if (!confirm("Delete this contact?")) return;
+
+  // If this contact still has stock "out" (their sale order isn't Lost yet,
+  // which is the only place that currently restores it), give it back to
+  // inventory before the contact — and its orders — disappear for good.
+  const opp = pipelineCache.find((p) => p.contact_id === id);
+  const stockAlreadyRestored = opp && opp.stage === 'perdu';
+  if (!stockAlreadyRestored) {
+    try { await adjustStockForContactSales(id, 1); }
+    catch (err) { console.error('Stock restitution error:', err); }
+  }
+
   const { error } = await _supabase.from('contacts').delete().eq('id', id);
   if (error) { alert("Deletion error: " + error.message); return; }
   await fetchContacts();
@@ -1349,14 +1260,11 @@ async function deleteContact(id) {
 
 function initForms() {
   document.getElementById('form-add-client').addEventListener('submit', (e) => handleAddContact(e, 'lead'));
-  document.getElementById('form-add-supplier').addEventListener('submit', (e) => handleAddContact(e, 'fournisseur'));
   document.getElementById('form-add-product').addEventListener('submit', handleAddProduct);
 
   document.getElementById('sale-add-item').addEventListener('click', () => addCartItem('sale'));
-  document.getElementById('purchase-add-item').addEventListener('click', () => addCartItem('purchase'));
 
   document.getElementById('sale-validate').addEventListener('click', () => validateTransaction('vente'));
-  document.getElementById('purchase-validate').addEventListener('click', () => validateTransaction('achat'));
 }
 
 async function handleAddContact(e, type) {
@@ -1377,6 +1285,26 @@ async function handleAddContact(e, type) {
   await loadDashboard();
 }
 
+// A single hidden internal "contact" that every auto-generated purchase
+// invoice is attached to, so restocking a product from the Inventory tab
+// keeps feeding the Financial Overview / Expenses numbers exactly like the
+// old Supplier flow did — without asking to pick a supplier every time.
+const INTERNAL_STOCK_CONTACT_NAME = 'Stock (Internal Restocking)';
+let _internalStockContactId = null;
+async function getOrCreateInternalStockContact() {
+  if (_internalStockContactId) return _internalStockContactId;
+  const { data: existing } = await _supabase.from('contacts').select('id').eq('type', 'fournisseur').eq('name', INTERNAL_STOCK_CONTACT_NAME).maybeSingle();
+  if (existing) { _internalStockContactId = existing.id; return existing.id; }
+  const { data: created, error } = await _supabase.from('contacts').insert({
+    name: INTERNAL_STOCK_CONTACT_NAME,
+    type: 'fournisseur',
+    created_at: new Date().toISOString()
+  }).select().single();
+  if (error) throw error;
+  _internalStockContactId = created.id;
+  return created.id;
+}
+
 async function handleAddProduct(e) {
   e.preventDefault();
   const form = e.target;
@@ -1385,6 +1313,7 @@ async function handleAddProduct(e) {
   const category = form.category.value;
   const description = form.description.value.trim();
   const stockToAdd = Number(form.stock_quantity.value);
+  const purchasePrice = Number(form.purchase_price.value);
   const unitPrice = Number(form.unit_price.value);
   const file = form.image.files && form.image.files[0];
 
@@ -1394,6 +1323,7 @@ async function handleAddProduct(e) {
     if (file) imagePath = await uploadProductImage(file);
 
     const existingProduct = productsCache.find((p) => p.name.toLowerCase() === name.toLowerCase());
+    let productId;
 
     if (existingProduct) {
       const updatePayload = {
@@ -1404,8 +1334,9 @@ async function handleAddProduct(e) {
       if (description) updatePayload.description = description;
       if (imagePath) updatePayload.image_path = imagePath;
       await _supabase.from('products').update(updatePayload).eq('id', existingProduct.id);
+      productId = existingProduct.id;
     } else {
-      await _supabase.from('products').insert({
+      const { data: created, error: insertError } = await _supabase.from('products').insert({
         name,
         category,
         description,
@@ -1413,11 +1344,42 @@ async function handleAddProduct(e) {
         stock_quantity: stockToAdd,
         unit_price: unitPrice,
         created_at: new Date().toISOString()
-      });
+      }).select().single();
+      if (insertError) throw insertError;
+      productId = created.id;
+    }
+
+    // Log this batch's cost as a "Purchase" invoice — same bookkeeping the old
+    // Supplier tab did, just triggered straight from adding the product, so a
+    // different purchase price per batch (e.g. one unit bought at 900, the
+    // next at 800) is captured automatically without any extra screen.
+    if (stockToAdd > 0) {
+      try {
+        const supplierContactId = await getOrCreateInternalStockContact();
+        const { data: tx, error: txError } = await _supabase.from('transactions').insert({
+          type: 'achat',
+          contact_id: supplierContactId,
+          total_amount: purchasePrice * stockToAdd,
+          invoice_number: `PO-${Date.now().toString().slice(-6)}`,
+          created_at: new Date().toISOString()
+        }).select().single();
+        if (txError) throw txError;
+        const { error: itemError } = await _supabase.from('transaction_items').insert({
+          transaction_id: tx.id,
+          product_id: productId,
+          quantity: stockToAdd,
+          unit_price: purchasePrice
+        });
+        if (itemError) throw itemError;
+      } catch (err) {
+        console.error('Purchase logging error:', err);
+      }
     }
 
     form.reset();
     await fetchProducts();
+    await fetchContacts();
+    await fetchAllInvoices();
     await loadDashboard();
   } catch (err) {
     alert('Error adding product: ' + err.message);
@@ -1440,7 +1402,7 @@ function addCartItem(kind) {
   if (!qty || qty <= 0 || price < 0) return;
 
   const prodObj = productsCache.find(p => p.id === opt.value);
-  const cart = kind === 'sale' ? saleCart : purchaseCart;
+  const cart = saleCart;
 
   cart.push({ product_id: opt.value, name: prodObj ? prodObj.name : opt.textContent, quantity: qty, unit_price: price, subtotal: qty * price });
   renderCart(kind);
@@ -1448,7 +1410,7 @@ function addCartItem(kind) {
 }
 
 function renderCart(kind) {
-  const cart = kind === 'sale' ? saleCart : purchaseCart;
+  const cart = saleCart;
   const body = document.getElementById(`${kind}-cart-body`);
   const totalEl = document.getElementById(`${kind}-cart-total`);
   const validateBtn = document.getElementById(`${kind}-validate`);
@@ -1474,15 +1436,14 @@ function renderCart(kind) {
 }
 
 async function validateTransaction(type) {
-  const isSale = type === 'vente';
-  const cart = isSale ? saleCart : purchaseCart;
+  const cart = saleCart;
   if (!cart.length) return;
 
-  const contactId = isSale ? document.getElementById('sale-client').value : document.getElementById('purchase-supplier').value;
+  const contactId = document.getElementById('sale-client').value;
   if (!contactId) { alert('Please select a contact.'); return; }
 
-  const invoiceInput = document.getElementById(isSale ? 'sale-invoice' : 'purchase-invoice');
-  const invoiceNumber = invoiceInput.value.trim() || `${isSale ? 'INV' : 'PO'}-${Date.now().toString().slice(-6)}`;
+  const invoiceInput = document.getElementById('sale-invoice');
+  const invoiceNumber = invoiceInput.value.trim() || `INV-${Date.now().toString().slice(-6)}`;
   const totalAmount = cart.reduce((sum, i) => sum + i.subtotal, 0);
 
   const { data: tx, error: txError } = await _supabase
@@ -1498,36 +1459,33 @@ async function validateTransaction(type) {
   for (const item of cart) {
     const currentProd = productsCache.find((p) => p.id === item.product_id);
     if (currentProd) {
-      const newStock = isSale ? Math.max(0, currentProd.stock_quantity - item.quantity) : currentProd.stock_quantity + item.quantity;
+      const newStock = Math.max(0, currentProd.stock_quantity - item.quantity);
       await _supabase.from('products').update({ stock_quantity: newStock }).eq('id', item.product_id);
     }
   }
 
-  // If this is a sale invoice linked to a contact, automatically create
-  // a Pipeline card (Lead / Prospect column) if that contact doesn't have one yet.
-  if (isSale) {
-    const { data: existingOpp, error: existingOppError } = await _supabase
-      .from('pipeline').select('id').eq('contact_id', contactId).limit(1);
-    if (existingOppError) console.error('Error checking existing pipeline entry:', existingOppError);
+  // Automatically create a Pipeline card (Ordered column) if this contact doesn't have one yet.
+  const { data: existingOpp, error: existingOppError } = await _supabase
+    .from('pipeline').select('id').eq('contact_id', contactId).limit(1);
+  if (existingOppError) console.error('Error checking existing pipeline entry:', existingOppError);
 
-    if (!existingOpp || existingOpp.length === 0) {
-      const contact = contactsCache.find((c) => String(c.id) === String(contactId));
-      const { error: oppError } = await _supabase.from('pipeline').insert({
-        title: contact ? contact.name : `Opportunity ${invoiceNumber}`,
-        contact_id: contactId,
-        stage: 'prospect',
-        estimated_value: totalAmount,
-        moved_to_stage_at: new Date().toISOString()
-      });
-      if (oppError) {
-        console.error('Error creating Pipeline opportunity:', oppError);
-        alert('Invoice created, but the Pipeline card could not be created: ' + oppError.message);
-      }
+  if (!existingOpp || existingOpp.length === 0) {
+    const contact = contactsCache.find((c) => String(c.id) === String(contactId));
+    const { error: oppError } = await _supabase.from('pipeline').insert({
+      title: contact ? contact.name : `Opportunity ${invoiceNumber}`,
+      contact_id: contactId,
+      stage: 'prospect',
+      estimated_value: totalAmount,
+      moved_to_stage_at: new Date().toISOString()
+    });
+    if (oppError) {
+      console.error('Error creating Pipeline opportunity:', oppError);
+      alert('Invoice created, but the Pipeline card could not be created: ' + oppError.message);
     }
   }
 
   cart.length = 0;
-  renderCart(isSale ? 'sale' : 'purchase');
+  renderCart('sale');
   invoiceInput.value = '';
 
   await fetchProducts();
