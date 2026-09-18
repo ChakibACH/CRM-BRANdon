@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRMDemo — CRM Login</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { animation: spin 0.7s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 1.4s; } }
+  .fade-in { animation: fadeIn 0.4s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .panel { background:#fff; border:1px solid #e2e8f0; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .field-label { display:block; font-size:.8rem; font-weight:500; color:#475569; margin-bottom:.3rem; }
+  .field-input { width:100%; border:1px solid #cbd5e1; border-radius:.5rem; padding:.6rem .7rem .6rem 2.4rem; font-size:.85rem; outline:none; transition:border .15s, box-shadow .15s; background:#fff; color:#1e293b; }
+  .field-input:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15); }
+  .btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; background:#2563eb; color:#fff; font-size:.85rem; font-weight:500; padding:.65rem 1rem; border-radius:.5rem; transition:background .15s; }
+  .btn-primary:hover { background:#1d4ed8; }
+  .btn-primary:disabled { opacity:.6; cursor:not-allowed; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-12">
+
+  <main class="w-full max-w-sm">
+    <div class="panel p-8">
+
+      <!-- Logo -->
+      <img src="logo.jpg" alt="CRMDemo Logo" class="h-16 mx-auto mb-4 object-contain rounded">
+
+      <!-- Title & branding -->
+      <div class="text-center mb-8">
+        <h1 class="text-2xl font-semibold text-slate-800 tracking-tight">CRMDemo</h1>
+        <p class="text-sm text-slate-500 mt-1.5">CRM Login Portal — CRMDemo</p>
+      </div>
+
+      <!-- Error alert -->
+      <div id="error-alert" class="hidden fade-in mb-5 flex items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-600">
+        <i data-lucide="alert-circle" class="h-4 w-4 mt-0.5 flex-shrink-0"></i>
+        <span id="error-message">Invalid credentials.</span>
+      </div>
+
+      <!-- Form -->
+      <form id="login-form" class="space-y-4" novalidate>
+
+        <div>
+          <label for="email" class="field-label">Email Address</label>
+          <div class="relative">
+            <i data-lucide="mail" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"></i>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              autocomplete="email"
+              required
+              placeholder="you@crmdemo.com"
+              class="field-input"
+            >
+          </div>
+        </div>
+
+        <div>
+          <label for="password" class="field-label">Password</label>
+          <div class="relative">
+            <i data-lucide="lock" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"></i>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              autocomplete="current-password"
+              required
+              placeholder="••••••••"
+              class="field-input"
+            >
+          </div>
+        </div>
+
+        <button type="submit" id="login-button" class="btn-primary w-full">
+          <i data-lucide="loader-2" id="login-spinner" class="hidden spinner h-4 w-4"></i>
+          <span id="login-button-text">Sign In</span>
+        </button>
+
+      </form>
+    </div>
+
+    <p class="text-center text-xs text-slate-400 mt-6">
+      Restricted access to authorized CRMDemo personnel.
+    </p>
+  </main>
+
+<script>
+  lucide.createIcons();
+
+  // --- Supabase Configuration ---
+  const supabaseUrl = 'https://dtygrnlkiesphhvcpvsj.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0eWdybmxraWVzcGhodmNwdnNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2ODM1NDIsImV4cCI6MjEwNTI1OTU0Mn0.CCtXBqJnVP3yBYP2llTWeiMvTz1OMbpYf57Obur9Ry8';
+
+  // Initialization on window.supabaseClient to avoid constant collisions
+  window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
+    auth: { 
+      persistSession: true, 
+      storage: window.sessionStorage, // Automatic logout upon closing the tab
+      autoRefreshToken: true, 
+      detectSessionInUrl: true 
+    }
+  });
+
+  const _supabase = window.supabaseClient;
+
+  // --- DOM References ---
+  const loginForm = document.getElementById('login-form');
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const loginButton = document.getElementById('login-button');
+  const loginButtonText = document.getElementById('login-button-text');
+  const loginSpinner = document.getElementById('login-spinner');
+  const errorAlert = document.getElementById('error-alert');
+  const errorMessage = document.getElementById('error-message');
+
+  function showError(message) {
+    errorMessage.textContent = message;
+    errorAlert.classList.remove('hidden');
+  }
+
+  function hideError() {
+    errorAlert.classList.add('hidden');
+  }
+
+  function setLoading(isLoading) {
+    loginButton.disabled = isLoading;
+    loginSpinner.classList.toggle('hidden', !isLoading);
+    loginButtonText.textContent = isLoading ? 'Signing in…' : 'Sign In';
+  }
+
+  function translateAuthError(error) {
+    const msg = error?.message?.toLowerCase() || '';
+    if (msg.includes('invalid login credentials')) {
+      return 'Invalid credentials. Please check your email and password.';
+    }
+    if (msg.includes('email not confirmed')) {
+      return 'Your email address has not been confirmed yet.';
+    }
+    if (msg.includes('too many requests')) {
+      return 'Too many attempts. Please try again in a few minutes.';
+    }
+    return 'An error occurred during sign-in. Please try again.';
+  }
+
+  // --- Automatic session check ---
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const { data, error } = await _supabase.auth.getSession();
+      if (!error && data?.session) {
+        window.location.href = 'dashboard.html';
+      }
+    } catch (err) {
+      console.error('Error during session check:', err);
+    }
+  });
+
+  // --- Login handler ---
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    hideError();
+
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+      showError('Please enter your email and password.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        showError(translateAuthError(error));
+        setLoading(false);
+        return;
+      }
+
+      if (data?.session) {
+        window.location.href = 'dashboard.html';
+      }
+    } catch (err) {
+      console.error('Sign-in error:', err);
+      showError('Unable to connect to the server. Please check your internet connection.');
+      setLoading(false);
+    }
+  });
+</script>
+</body>
+</html>
