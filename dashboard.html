@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CRMDemo — CRM Dashboard</title>
+<link rel="icon" type="image/jpeg" href="logo.jpg">
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -432,12 +433,13 @@
             <div><label class="field-label">Product Name</label><input required type="text" name="name" class="field-input"></div>
             <div>
               <label class="field-label">Category</label>
-              <select name="category" class="field-input">
+              <select id="add-product-category" name="category" class="field-input">
                 <option value="Phones">Phones</option>
                 <option value="Audio">Audio</option>
                 <option value="Chargers">Chargers</option>
                 <option value="Wearables">Wearables</option>
                 <option value="Accessories" selected>Accessories</option>
+                <option value="__new__">+ Add new category…</option>
               </select>
             </div>
             <div><label class="field-label">Initial Stock</label><input required type="number" min="0" name="stock_quantity" value="0" class="field-input"></div>
@@ -480,20 +482,13 @@
         </div>
 
         <div class="overflow-x-auto pb-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 min-w-[1000px]">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 min-w-[750px]">
             <div class="flex flex-col">
               <div class="flex items-center justify-between mb-2">
-                <p class="text-xs font-bold text-slate-600 uppercase tracking-wider">Lead / Prospect</p>
+                <p class="text-xs font-bold text-slate-600 uppercase tracking-wider">Ordered</p>
                 <span id="count-prospect" class="badge bg-slate-200 text-slate-700">0</span>
               </div>
               <div class="kanban-col flex-1" id="kanban-prospect"></div>
-            </div>
-            <div class="flex flex-col">
-              <div class="flex items-center justify-between mb-2">
-                <p class="text-xs font-bold text-blue-600 uppercase tracking-wider">Negotiation</p>
-                <span id="count-negociation" class="badge bg-blue-100 text-blue-700">0</span>
-              </div>
-              <div class="kanban-col flex-1" id="kanban-negociation"></div>
             </div>
             <div class="flex flex-col">
               <div class="flex items-center justify-between mb-2">
@@ -535,6 +530,7 @@
           <option value="Chargers">Chargers</option>
           <option value="Wearables">Wearables</option>
           <option value="Accessories">Accessories</option>
+          <option value="__new__">+ Add new category…</option>
         </select>
       </div>
       <div><label class="field-label">Stock Quantity</label><input required type="number" min="0" id="edit-product-stock" class="field-input"></div>
@@ -715,6 +711,9 @@ window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
 const _supabase = window.supabaseClient;
 
 // Cache & App State
+const BASE_PRODUCT_CATEGORIES = ['Phones', 'Audio', 'Chargers', 'Wearables', 'Accessories'];
+let customCategories = [];
+try { customCategories = JSON.parse(localStorage.getItem('crm_custom_categories') || '[]'); } catch (e) { customCategories = []; }
 let productsCache = [];
 let contactsCache = [];
 let pipelineCache = [];
@@ -737,6 +736,7 @@ async function bootDashboard(session) {
   initForms();
   initSearchEvents();
   initDateFilterEvents();
+  initCategorySelects();
 
   try {
     await Promise.all([fetchProducts(), fetchContacts()]);
@@ -1084,6 +1084,7 @@ async function fetchProducts() {
   renderStocksTable();
   populateProductSelects();
   renderStockAlert();
+  refreshCategorySelects();
 }
 
 function renderStocksTable() {
@@ -1125,6 +1126,54 @@ function populateProductSelects() {
   syncPriceField('purchase-item-product', 'purchase-item-price');
 }
 
+// Product Categories — dynamic list (base categories + any category already
+// used by a product + any category created on the fly from the dropdown).
+// A category created here is stored the moment a product using it is saved,
+// so it becomes visible on the storefront right away.
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function getAllCategories() {
+  const used = productsCache.map((p) => p.category).filter(Boolean);
+  return Array.from(new Set([...BASE_PRODUCT_CATEGORIES, ...used, ...customCategories])).sort((a, b) => a.localeCompare(b));
+}
+
+function populateCategorySelect(selectEl, selectedValue) {
+  if (!selectEl) return;
+  const categories = getAllCategories();
+  const current = selectedValue !== undefined ? selectedValue : selectEl.value;
+  selectEl.innerHTML = categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')
+    + '<option value="__new__">+ Add new category…</option>';
+  selectEl.value = categories.includes(current) ? current : (categories[0] || '');
+}
+
+function refreshCategorySelects() {
+  populateCategorySelect(document.getElementById('add-product-category'));
+}
+
+function handleCategorySelectChange(e) {
+  const selectEl = e.target;
+  if (selectEl.value !== '__new__') return;
+  const name = prompt('Name of the new category:');
+  const trimmed = (name || '').trim();
+  if (trimmed) {
+    if (!customCategories.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      customCategories.push(trimmed);
+      try { localStorage.setItem('crm_custom_categories', JSON.stringify(customCategories)); } catch (err) {}
+    }
+    populateCategorySelect(selectEl, trimmed);
+  } else {
+    populateCategorySelect(selectEl, 'Accessories');
+  }
+}
+
+function initCategorySelects() {
+  document.getElementById('add-product-category').addEventListener('change', handleCategorySelectChange);
+  document.getElementById('edit-product-category').addEventListener('change', handleCategorySelectChange);
+  refreshCategorySelects();
+}
+
 function syncPriceField(selectId, priceId) {
   const select = document.getElementById(selectId);
   const price = document.getElementById(priceId);
@@ -1149,7 +1198,7 @@ function openEditModal(productId) {
   if (!prod) return;
   document.getElementById('edit-product-id').value = prod.id;
   document.getElementById('edit-product-name').value = prod.name;
-  document.getElementById('edit-product-category').value = prod.category || 'Accessories';
+  populateCategorySelect(document.getElementById('edit-product-category'), prod.category || 'Accessories');
   document.getElementById('edit-product-stock').value = prod.stock_quantity;
   document.getElementById('edit-product-price').value = prod.unit_price;
   document.getElementById('edit-product-description').value = prod.description || '';
@@ -1224,7 +1273,7 @@ async function renderContactsTables() {
     <tr>
       <td class="font-mono text-xs text-slate-500">${fmtId(c.id)}</td>
       <td class="font-medium">${c.name}</td>
-      <td>${c.type === 'client' ? '<span class="badge bg-emerald-100 text-emerald-700">Client</span>' : '<span class="badge bg-amber-100 text-amber-700">Lead</span>'}</td>
+      <td><span class="badge bg-emerald-100 text-emerald-700">Client</span></td>
       <td>${invoiceDisplay}</td>
       <td class="text-xs text-slate-500">${fmtDateTime(c.created_at)}</td>
       <td>${c.email || '—'}</td>
@@ -1702,7 +1751,7 @@ function renderPipelineCards() {
     if (inv.type === 'vente' && inv.contact_id) pipelineInvoiceMap[inv.contact_id] = inv;
   });
 
-  ['prospect', 'negociation', 'gagne', 'perdu'].forEach((stage) => {
+  ['prospect', 'gagne', 'perdu'].forEach((stage) => {
     const col = document.getElementById(`kanban-${stage}`);
     col.dataset.stage = stage;
 
@@ -2029,14 +2078,14 @@ function renderTopClientsChart(ventes) {
 
 async function renderPipelineChart() {
   const { data } = await _supabase.from('pipeline').select('stage, estimated_value');
-  const stages = { prospect: 0, negociation: 0, gagne: 0, perdu: 0 };
+  const stages = { prospect: 0, gagne: 0, perdu: 0 };
 
   (data || []).forEach((p) => { if (stages[p.stage] !== undefined) stages[p.stage] += Number(p.estimated_value || 0); });
 
   const ctx = document.getElementById('chart-pipeline');
   const chartData = {
-    labels: ['Lead', 'Negotiation', 'Won', 'Lost'],
-    datasets: [{ label: 'Est. Value ($)', data: [stages.prospect, stages.negociation, stages.gagne, stages.perdu], backgroundColor: ['#64748b', '#3b82f6', '#10b981', '#f43f5e'], borderRadius: 4 }]
+    labels: ['Ordered', 'Won', 'Lost'],
+    datasets: [{ label: 'Est. Value ($)', data: [stages.prospect, stages.gagne, stages.perdu], backgroundColor: ['#64748b', '#10b981', '#f43f5e'], borderRadius: 4 }]
   };
 
   if (pipelineChart) { pipelineChart.data = chartData; pipelineChart.update('none'); return; }
