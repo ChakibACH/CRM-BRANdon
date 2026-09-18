@@ -1,0 +1,2047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRMDemo — CRM Dashboard</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5sortable@0.14.0/dist/html5sortable.min.js"></script>
+
+<style>
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .nav-btn { display:flex; align-items:center; gap:.65rem; width:100%; padding:.6rem .75rem; border-radius:.5rem; font-size:.875rem; color:#475569; transition:background .15s,color .15s; }
+  .nav-btn:hover { background:#f1f5f9; }
+  .nav-btn.active { background:#eff6ff; color:#2563eb; font-weight:600; }
+  .tab-section.hidden { display:none; }
+  .kpi-card { background:#fff; border:1px solid #e2e8f0; border-radius:.75rem; padding:1.25rem; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .panel { background:#fff; border:1px solid #e2e8f0; border-radius:.75rem; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .field-label { display:block; font-size:.8rem; font-weight:500; color:#475569; margin-bottom:.3rem; }
+  .field-input { width:100%; border:1px solid #cbd5e1; border-radius:.5rem; padding:.5rem .7rem; font-size:.85rem; outline:none; transition:border .15s, box-shadow .15s; background:#fff; }
+  .field-input:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15); }
+  .btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; background:#2563eb; color:#fff; font-size:.85rem; font-weight:500; padding:.55rem 1rem; border-radius:.5rem; transition:background .15s; }
+  .btn-primary:hover { background:#1d4ed8; }
+  .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; background:#f1f5f9; color:#334155; font-size:.8rem; font-weight:500; padding:.45rem .8rem; border-radius:.5rem; transition:background .15s; }
+  .btn-secondary:hover { background:#e2e8f0; }
+  .btn-danger { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; background:#fee2e2; color:#dc2626; font-size:.8rem; font-weight:500; padding:.45rem .8rem; border-radius:.5rem; transition:background .15s; }
+  .btn-danger:hover { background:#fecaca; }
+  table.data-table { width:100%; font-size:.83rem; border-collapse:collapse; }
+  table.data-table th { text-align:left; padding:.6rem .75rem; color:#64748b; font-weight:600; border-bottom:1px solid #e2e8f0; white-space:nowrap; }
+  table.data-table td { padding:.6rem .75rem; border-bottom:1px solid #f1f5f9; color:#334155; white-space:nowrap; }
+  .badge { display:inline-flex; align-items:center; padding:.15rem .55rem; border-radius:9999px; font-size:.72rem; font-weight:600; }
+  
+  /* Pipeline Kanban */
+  .kanban-col { background:#f8fafc; border:1px solid #e2e8f0; border-radius:.75rem; padding:.85rem; min-height:280px; }
+  .kanban-card { background:#fff; border:1px solid #e2e8f0; border-radius:.6rem; padding:.85rem 1rem; margin-bottom:.75rem; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+</style>
+</head>
+<body class="h-screen overflow-hidden bg-slate-50 text-slate-800">
+
+<!-- Overlay Mobile -->
+<div id="mobile-overlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 hidden md:hidden"></div>
+
+<div class="flex h-full">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 transform -translate-x-full md:relative md:translate-x-0 flex-shrink-0">
+    <div class="px-5 pt-6 pb-4 border-b border-slate-100 flex items-center justify-between">
+      <div class="w-full text-center">
+        <img src="logo.jpg" alt="CRMDemo Logo" class="h-10 mx-auto mb-3 object-contain rounded">
+        <p class="text-center text-sm font-semibold text-slate-700">CRMDemo CRM</p>
+      </div>
+      <button id="close-sidebar-btn" class="md:hidden text-slate-500 hover:text-slate-700">
+        <i data-lucide="x" class="h-6 w-6"></i>
+      </button>
+    </div>
+
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <button class="nav-btn active" data-tab="dashboard">
+        <i data-lucide="layout-dashboard" class="h-4 w-4"></i> Dashboard
+      </button>
+      <button class="nav-btn" data-tab="clients">
+        <i data-lucide="users" class="h-4 w-4"></i> Leads & Clients
+      </button>
+      <button class="nav-btn" data-tab="suppliers">
+        <i data-lucide="truck" class="h-4 w-4"></i> Suppliers & Purchases
+      </button>
+      <button class="nav-btn" data-tab="invoices">
+        <i data-lucide="file-text" class="h-4 w-4"></i> Invoices & Transactions
+      </button>
+      <button class="nav-btn" data-tab="stocks">
+        <i data-lucide="boxes" class="h-4 w-4"></i> Inventory Management
+      </button>
+      <button class="nav-btn" data-tab="pipeline">
+        <i data-lucide="kanban-square" class="h-4 w-4"></i> Sales Pipeline
+      </button>
+    </nav>
+
+    <div class="p-3 border-t border-slate-100">
+      <button id="logout-btn" class="nav-btn hover:bg-rose-50 hover:text-rose-600 w-full">
+        <i data-lucide="log-out" class="h-4 w-4"></i> Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="flex-1 flex flex-col overflow-hidden w-full">
+
+    <header class="h-16 flex-shrink-0 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6">
+      <div class="flex items-center gap-3">
+        <button id="open-sidebar-btn" class="md:hidden text-slate-600 hover:text-slate-900 focus:outline-none">
+          <i data-lucide="menu" class="h-6 w-6"></i>
+        </button>
+        <h1 id="page-title" class="text-base sm:text-lg font-semibold text-slate-800">Dashboard</h1>
+      </div>
+      <div class="flex items-center gap-2 text-xs sm:text-sm text-slate-500">
+        <i data-lucide="user-circle" class="h-4 w-4"></i>
+        <span id="user-email" class="truncate max-w-[120px] sm:max-w-none">—</span>
+      </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+
+      <!-- ===================== DASHBOARD TAB ===================== -->
+      <section id="tab-dashboard" class="tab-section space-y-6">
+
+        <div class="panel p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white">
+          <div class="flex items-center gap-2">
+            <i data-lucide="calendar" class="h-5 w-5 text-blue-600"></i>
+            <span class="font-semibold text-sm text-slate-700">Time Filter:</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <select id="dashboard-date-mode" class="field-input !w-auto text-xs font-medium">
+              <option value="global">Global View (All)</option>
+              <option value="single">Specific Date</option>
+              <option value="range">Custom Range</option>
+            </select>
+
+            <div id="date-single-container" class="hidden relative">
+              <button type="button" id="date-single-trigger" class="field-input text-xs !py-1.5 !w-40 flex items-center justify-between gap-2">
+                <span id="date-single-label" class="truncate">Choose a date</span>
+                <i data-lucide="calendar-days" class="h-3.5 w-3.5 text-slate-400 flex-shrink-0"></i>
+              </button>
+              <input type="hidden" id="date-single-input">
+              <div id="calendar-single-popover" class="hidden absolute left-0 z-50 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg p-3" style="width:250px;"></div>
+            </div>
+
+            <div id="date-range-container" class="hidden relative">
+              <button type="button" id="date-range-trigger" class="field-input text-xs !py-1.5 !w-56 flex items-center justify-between gap-2">
+                <span id="date-range-label" class="truncate">Choose a range</span>
+                <i data-lucide="calendar-days" class="h-3.5 w-3.5 text-slate-400 flex-shrink-0"></i>
+              </button>
+              <input type="hidden" id="date-start-input">
+              <input type="hidden" id="date-end-input">
+              <div id="calendar-range-popover" class="hidden absolute left-0 z-50 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg p-3" style="width:250px;"></div>
+            </div>
+
+            <button id="apply-date-filter-btn" class="btn-primary !py-1.5 text-xs">
+              <i data-lucide="filter" class="h-3.5 w-3.5"></i> Filter
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Revenue</p>
+            <p id="kpi-ca" class="text-lg sm:text-2xl font-semibold text-blue-600">$0.00</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Total Expenses</p>
+            <p id="kpi-depenses" class="text-lg sm:text-2xl font-semibold text-slate-700">$0.00</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Net Margin</p>
+            <p id="kpi-marge" class="text-lg sm:text-2xl font-semibold text-emerald-600">$0.00</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Margin Rate %</p>
+            <p id="kpi-margin-pct" class="text-lg sm:text-2xl font-semibold text-indigo-600">0.0%</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Average Order Value</p>
+            <p id="kpi-panier" class="text-lg sm:text-2xl font-semibold text-violet-600">$0.00</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Valid Transactions</p>
+            <p id="kpi-transactions" class="text-lg sm:text-2xl font-semibold text-amber-600">0</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Units Sold</p>
+            <p id="kpi-units" class="text-lg sm:text-2xl font-semibold text-teal-600">0</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Items in Stock</p>
+            <p id="kpi-stock-qty" class="text-lg sm:text-2xl font-semibold text-sky-600">0</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Stock Value</p>
+            <p id="kpi-stock-val" class="text-lg sm:text-2xl font-semibold text-cyan-600">$0.00</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Active Contacts</p>
+            <p id="kpi-contacts" class="text-lg sm:text-2xl font-semibold text-indigo-600">0</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Pipeline Opportunities</p>
+            <p id="kpi-pipeline-count" class="text-lg sm:text-2xl font-semibold text-orange-600">0</p>
+          </div>
+          <div class="kpi-card">
+            <p class="text-xs text-slate-500 mb-1">Conversion Rate</p>
+            <p id="kpi-win-rate" class="text-lg sm:text-2xl font-semibold text-emerald-600">0.0%</p>
+          </div>
+        </div>
+
+        <div id="stock-alert" class="hidden panel border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+          <i data-lucide="alert-triangle" class="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0"></i>
+          <div>
+            <p class="text-sm font-semibold text-amber-800">Low Stock Alert</p>
+            <p id="stock-alert-list" class="text-sm text-amber-700 mt-1"></p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="panel p-4 sm:p-5">
+            <p class="text-sm font-semibold text-slate-700 mb-3">Financial Overview (Sales vs Purchases)</p>
+            <div class="relative h-64 w-full">
+              <canvas id="chart-finance"></canvas>
+            </div>
+          </div>
+          <div class="panel p-4 sm:p-5">
+            <p class="text-sm font-semibold text-slate-700 mb-3">Sales by Product</p>
+            <div class="relative h-64 w-full">
+              <canvas id="chart-products"></canvas>
+            </div>
+          </div>
+          <div class="panel p-4 sm:p-5">
+            <p class="text-sm font-semibold text-slate-700 mb-3">Top 5 Clients (by Revenue)</p>
+            <div class="relative h-64 w-full">
+              <canvas id="chart-top-clients"></canvas>
+            </div>
+          </div>
+          <div class="panel p-4 sm:p-5">
+            <p class="text-sm font-semibold text-slate-700 mb-3">Value by Pipeline Stage</p>
+            <div class="relative h-64 w-full">
+              <canvas id="chart-pipeline"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== LEADS & CLIENTS TAB ===================== -->
+      <section id="tab-clients" class="tab-section hidden space-y-6">
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="panel p-4 sm:p-5">
+            <p class="text-sm font-semibold text-slate-700 mb-4">New Prospect (Lead)</p>
+            <p class="text-xs text-slate-500 mb-3">Every new contact starts as a Lead. It becomes an official Client once it reaches "Won" status in the Pipeline.</p>
+            <form id="form-add-client" class="space-y-3">
+              <div><label class="field-label">Name / Company</label><input required type="text" name="name" class="field-input"></div>
+              <div><label class="field-label">Email</label><input type="email" name="email" class="field-input"></div>
+              <div><label class="field-label">Phone</label><input type="tel" name="phone" class="field-input"></div>
+              <div><label class="field-label">Address</label><input type="text" name="address" class="field-input"></div>
+              <button type="submit" class="btn-primary w-full"><i data-lucide="user-plus" class="h-4 w-4"></i> Create Lead</button>
+            </form>
+          </div>
+
+          <div class="panel p-4 sm:p-5">
+            <p class="text-sm font-semibold text-slate-700 mb-4">New Lead Invoice / Sale</p>
+            <form id="form-sale-header" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div class="sm:col-span-2">
+                <label class="field-label">Lead / Contact</label>
+                <select id="sale-client" required class="field-input"><option value="">Select a Lead...</option></select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="field-label">Invoice No.</label>
+                <input id="sale-invoice" type="text" class="field-input" placeholder="Auto-generated if left blank">
+              </div>
+            </form>
+
+            <div class="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end mb-3">
+              <div class="sm:col-span-3">
+                <label class="field-label">Product</label>
+                <select id="sale-item-product" class="field-input"></select>
+              </div>
+              <div class="sm:col-span-1">
+                <label class="field-label">Qty</label>
+                <input id="sale-item-qty" type="number" min="1" value="1" class="field-input">
+              </div>
+              <div class="sm:col-span-1">
+                <label class="field-label">Unit Price</label>
+                <input id="sale-item-price" type="number" min="0" step="0.01" readonly tabindex="-1" class="field-input bg-slate-100 text-slate-500 cursor-not-allowed">
+              </div>
+              <div class="sm:col-span-1">
+                <button type="button" id="sale-add-item" class="btn-secondary w-full mt-2 sm:mt-0"><i data-lucide="plus" class="h-4 w-4"></i></button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="data-table mb-3">
+                <thead><tr><th>ID</th><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th><th></th></tr></thead>
+                <tbody id="sale-cart-body"></tbody>
+              </table>
+            </div>
+            <div class="flex items-center justify-between border-t border-slate-100 pt-3">
+              <span class="text-sm text-slate-500">Invoice Total</span>
+              <span id="sale-cart-total" class="text-lg font-semibold text-blue-600">$0.00</span>
+            </div>
+            <button id="sale-validate" disabled class="btn-primary w-full mt-3 disabled:opacity-40 disabled:cursor-not-allowed">
+              <i data-lucide="check" class="h-4 w-4"></i> Validate Invoice
+            </button>
+          </div>
+        </div>
+
+        <div class="panel p-4 sm:p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <p class="text-sm font-semibold text-slate-700">Leads & Clients Directory</p>
+              <p class="text-xs text-slate-500">View the status, associated invoice, and creation date of your contacts.</p>
+            </div>
+            <input type="text" id="clients-search-input" placeholder="Search contacts..." class="field-input w-full sm:!w-64">
+          </div>
+          <div class="overflow-x-auto">
+            <table id="clients-table" class="data-table">
+              <thead><tr><th>ID</th><th>Name</th><th>Status</th><th>Associated Invoice</th><th>Date Added</th><th>Email</th><th>Phone</th><th>Actions</th></tr></thead>
+              <tbody id="clients-list-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== SUPPLIERS & PURCHASES TAB ===================== -->
+      <section id="tab-suppliers" class="tab-section hidden space-y-6">
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="panel p-4 sm:p-5">
+            <p class="text-sm font-semibold text-slate-700 mb-4">Add a Supplier</p>
+            <form id="form-add-supplier" class="space-y-3">
+              <div><label class="field-label">Company / Name</label><input required type="text" name="name" class="field-input"></div>
+              <div><label class="field-label">Email</label><input type="email" name="email" class="field-input"></div>
+              <div><label class="field-label">Phone</label><input type="tel" name="phone" class="field-input"></div>
+              <div><label class="field-label">Address</label><input type="text" name="address" class="field-input"></div>
+              <button type="submit" class="btn-primary w-full"><i data-lucide="user-plus" class="h-4 w-4"></i> Save Supplier</button>
+            </form>
+          </div>
+
+          <div class="panel p-4 sm:p-5">
+            <p class="text-sm font-semibold text-slate-700 mb-4">New Purchase Order</p>
+            <form id="form-purchase-header" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div class="sm:col-span-2">
+                <label class="field-label">Supplier</label>
+                <select id="purchase-supplier" required class="field-input"><option value="">Select a supplier...</option></select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="field-label">Invoice / Order No.</label>
+                <input id="purchase-invoice" type="text" class="field-input" placeholder="Auto-generated if left blank">
+              </div>
+            </form>
+
+            <div class="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end mb-3">
+              <div class="sm:col-span-3">
+                <label class="field-label">Product</label>
+                <select id="purchase-item-product" class="field-input"></select>
+              </div>
+              <div class="sm:col-span-1">
+                <label class="field-label">Qty</label>
+                <input id="purchase-item-qty" type="number" min="1" value="1" class="field-input">
+              </div>
+              <div class="sm:col-span-1">
+                <label class="field-label">Unit Cost</label>
+                <input id="purchase-item-price" type="number" min="0" step="0.01" class="field-input">
+              </div>
+              <div class="sm:col-span-1">
+                <button type="button" id="purchase-add-item" class="btn-secondary w-full mt-2 sm:mt-0"><i data-lucide="plus" class="h-4 w-4"></i></button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="data-table mb-3">
+                <thead><tr><th>ID</th><th>Product</th><th>Qty</th><th>Unit Cost</th><th>Subtotal</th><th></th></tr></thead>
+                <tbody id="purchase-cart-body"></tbody>
+              </table>
+            </div>
+            <div class="flex items-center justify-between border-t border-slate-100 pt-3">
+              <span class="text-sm text-slate-500">Total</span>
+              <span id="purchase-cart-total" class="text-lg font-semibold text-slate-700">$0.00</span>
+            </div>
+            <button id="purchase-validate" disabled class="btn-primary w-full mt-3 disabled:opacity-40 disabled:cursor-not-allowed">
+              <i data-lucide="check" class="h-4 w-4"></i> Confirm Purchase
+            </button>
+          </div>
+        </div>
+
+        <div class="panel p-4 sm:p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <p class="text-sm font-semibold text-slate-700">Suppliers Directory</p>
+            <input type="text" id="suppliers-search-input" placeholder="Search suppliers..." class="field-input w-full sm:!w-64">
+          </div>
+          <div class="overflow-x-auto">
+            <table id="suppliers-table" class="data-table">
+              <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Address</th><th>Actions</th></tr></thead>
+              <tbody id="suppliers-list-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== INVOICES / TRANSACTIONS TAB ===================== -->
+      <section id="tab-invoices" class="tab-section hidden space-y-6">
+        <div class="panel p-4 sm:p-5">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+            <div>
+              <p class="text-base font-semibold text-slate-800">All Invoices &amp; Transactions</p>
+              <p class="text-xs text-slate-500">Invoices linked to Leads only appear here automatically once the Lead reaches "Won" status.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <input type="text" id="invoices-search-input" placeholder="Invoice No., Contact, Product..." class="field-input w-full sm:!w-64">
+              <select id="invoices-filter-type-input" class="field-input w-full sm:!w-auto">
+                <option value="all">All types</option>
+                <option value="vente">Sales / Clients</option>
+                <option value="achat">Purchases / Suppliers</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table id="invoices-table" class="data-table">
+              <thead>
+                <tr>
+                  <th>Invoice No.</th>
+                  <th>Type</th>
+                  <th>Contact</th>
+                  <th>Date &amp; Time</th>
+                  <th>Total Amount</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="all-invoices-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== INVENTORY CONTROL TAB ===================== -->
+      <section id="tab-stocks" class="tab-section hidden space-y-6">
+
+        <div class="panel p-4 sm:p-5">
+          <p class="text-sm font-semibold text-slate-700 mb-4">Add a Product to Catalog</p>
+          <form id="form-add-product" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+            <div><label class="field-label">Product Name</label><input required type="text" name="name" class="field-input"></div>
+            <div>
+              <label class="field-label">Category</label>
+              <select name="category" class="field-input">
+                <option value="Phones">Phones</option>
+                <option value="Audio">Audio</option>
+                <option value="Chargers">Chargers</option>
+                <option value="Wearables">Wearables</option>
+                <option value="Accessories" selected>Accessories</option>
+              </select>
+            </div>
+            <div><label class="field-label">Initial Stock</label><input required type="number" min="0" name="stock_quantity" value="0" class="field-input"></div>
+            <div><label class="field-label">Unit Price ($)</label><input required type="number" min="0" step="0.01" name="unit_price" class="field-input"></div>
+            <div class="sm:col-span-2 lg:col-span-3">
+              <label class="field-label">Description (shown on the storefront)</label>
+              <textarea name="description" rows="2" class="field-input" placeholder="Short product description for the website"></textarea>
+            </div>
+            <div>
+              <label class="field-label">Photo</label>
+              <input type="file" name="image" accept="image/*" class="field-input !py-1.5">
+            </div>
+            <button type="submit" class="btn-primary w-full lg:col-span-4"><i data-lucide="package-plus" class="h-4 w-4"></i> Add Product</button>
+          </form>
+        </div>
+
+        <div class="panel p-4 sm:p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <p class="text-sm font-semibold text-slate-700">Product Catalog &amp; Stock Levels</p>
+            <input type="text" id="products-search-input" placeholder="Search products..." class="field-input w-full sm:!w-64">
+          </div>
+          <div class="overflow-x-auto">
+            <table id="stocks-table" class="data-table">
+              <thead><tr><th>ID</th><th>Photo</th><th>Product</th><th>Category</th><th>Stock Level</th><th>Unit Price</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="stocks-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== SALES PIPELINE TAB ===================== -->
+      <section id="tab-pipeline" class="tab-section hidden space-y-6">
+
+        <div class="panel p-4 sm:p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <p class="text-sm font-semibold text-slate-700">Sales Pipeline (Opportunities)</p>
+            <input type="text" id="pipeline-search-input" placeholder="Search an opportunity or contact..." class="field-input w-full sm:!w-64">
+          </div>
+
+        </div>
+
+        <div class="overflow-x-auto pb-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 min-w-[1000px]">
+            <div class="flex flex-col">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-600 uppercase tracking-wider">Lead / Prospect</p>
+                <span id="count-prospect" class="badge bg-slate-200 text-slate-700">0</span>
+              </div>
+              <div class="kanban-col flex-1" id="kanban-prospect"></div>
+            </div>
+            <div class="flex flex-col">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-blue-600 uppercase tracking-wider">Negotiation</p>
+                <span id="count-negociation" class="badge bg-blue-100 text-blue-700">0</span>
+              </div>
+              <div class="kanban-col flex-1" id="kanban-negociation"></div>
+            </div>
+            <div class="flex flex-col">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Won</p>
+                <span id="count-gagne" class="badge bg-emerald-100 text-emerald-700">0</span>
+              </div>
+              <div class="kanban-col flex-1" id="kanban-gagne"></div>
+            </div>
+            <div class="flex flex-col">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-rose-600 uppercase tracking-wider">Lost</p>
+                <span id="count-perdu" class="badge bg-rose-100 text-rose-700">0</span>
+              </div>
+              <div class="kanban-col flex-1" id="kanban-perdu"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ===================== MODALS ===================== -->
+<div id="modal-edit-product" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+      <h3 class="font-semibold text-slate-800">Edit Product</h3>
+      <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="h-5 w-5"></i></button>
+    </div>
+    <form id="form-edit-product" class="space-y-3">
+      <input type="hidden" id="edit-product-id">
+      <div><label class="field-label">Product Name</label><input required type="text" id="edit-product-name" class="field-input"></div>
+      <div>
+        <label class="field-label">Category</label>
+        <select id="edit-product-category" class="field-input">
+          <option value="Phones">Phones</option>
+          <option value="Audio">Audio</option>
+          <option value="Chargers">Chargers</option>
+          <option value="Wearables">Wearables</option>
+          <option value="Accessories">Accessories</option>
+        </select>
+      </div>
+      <div><label class="field-label">Stock Quantity</label><input required type="number" min="0" id="edit-product-stock" class="field-input"></div>
+      <div><label class="field-label">Unit Price ($)</label><input required type="number" min="0" step="0.01" id="edit-product-price" class="field-input"></div>
+      <div><label class="field-label">Description</label><textarea id="edit-product-description" rows="2" class="field-input"></textarea></div>
+      <div><label class="field-label">Replace Photo (optional)</label><input type="file" id="edit-product-image" accept="image/*" class="field-input !py-1.5"></div>
+      <div class="flex gap-2 justify-end pt-2">
+        <button type="button" onclick="closeEditModal()" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-edit-contact" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+      <h3 id="modal-contact-title" class="font-semibold text-slate-800">Edit Contact</h3>
+      <button onclick="closeContactModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="h-5 w-5"></i></button>
+    </div>
+    <form id="form-edit-contact" class="space-y-3">
+      <input type="hidden" id="edit-contact-id">
+      <div><label class="field-label">Name / Company</label><input required type="text" id="edit-contact-name" class="field-input"></div>
+      <div><label class="field-label">Email</label><input type="email" id="edit-contact-email" class="field-input"></div>
+      <div><label class="field-label">Phone</label><input type="tel" id="edit-contact-phone" class="field-input"></div>
+      <div><label class="field-label">Address</label><input type="text" id="edit-contact-address" class="field-input"></div>
+      <div class="flex gap-2 justify-end pt-2">
+        <button type="button" onclick="closeContactModal()" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-edit-invoice" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+      <h3 class="font-semibold text-slate-800">Edit Invoice</h3>
+      <button onclick="closeEditInvoiceModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="h-5 w-5"></i></button>
+    </div>
+    <form id="form-edit-invoice" class="space-y-4">
+      <input type="hidden" id="edit-invoice-id">
+      <div>
+        <label class="field-label">Invoice No.</label>
+        <input required type="text" id="edit-invoice-number" class="field-input">
+      </div>
+
+      <div class="border-t border-slate-100 pt-3">
+        <p class="text-xs font-semibold text-slate-600 mb-2">Invoice Contents</p>
+        <div id="edit-invoice-items-container" class="space-y-2"></div>
+      </div>
+
+      <div class="flex items-center justify-between border-t border-slate-100 pt-3">
+        <span class="text-sm font-semibold text-slate-600">New Calculated Total</span>
+        <span id="edit-invoice-calculated-total" class="text-base font-semibold text-blue-600">$0.00</span>
+      </div>
+
+      <div class="flex gap-2 justify-end pt-2">
+        <button type="button" onclick="closeEditInvoiceModal()" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-invoice-details" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full p-6 space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+      <div>
+        <h3 id="modal-invoice-title" class="font-semibold text-slate-800">Invoice Details</h3>
+        <p id="modal-invoice-subtitle" class="text-xs text-slate-500"></p>
+      </div>
+      <button onclick="closeInvoiceModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="h-5 w-5"></i></button>
+    </div>
+    
+    <div class="overflow-x-auto">
+      <table class="data-table">
+        <thead><tr><th>ID</th><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead>
+        <tbody id="modal-invoice-items"></tbody>
+      </table>
+    </div>
+
+    <div class="flex justify-between items-center border-t border-slate-100 pt-3">
+      <span class="text-sm font-semibold text-slate-600">Total Amount</span>
+      <span id="modal-invoice-total" class="text-lg font-semibold text-blue-600">$0.00</span>
+    </div>
+  </div>
+</div>
+
+<script>
+lucide.createIcons();
+
+// Mobile Navigation
+const sidebar = document.getElementById('sidebar');
+const mobileOverlay = document.getElementById('mobile-overlay');
+const openSidebarBtn = document.getElementById('open-sidebar-btn');
+const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+
+function openSidebar() { sidebar.classList.remove('-translate-x-full'); mobileOverlay.classList.remove('hidden'); }
+function closeSidebar() { sidebar.classList.add('-translate-x-full'); mobileOverlay.classList.add('hidden'); }
+
+openSidebarBtn.addEventListener('click', openSidebar);
+closeSidebarBtn.addEventListener('click', closeSidebar);
+mobileOverlay.addEventListener('click', closeSidebar);
+
+const fmtId = (id) => id ? (typeof id === 'string' ? id.slice(0, 8).toUpperCase() : id) : '—';
+const fmtDateTime = (dateStr) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+};
+const fmtUSD = (n) => (Number(n) || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+// Highlights a KPI in red as soon as its value is negative (restores its original color otherwise)
+function applyNegativeHighlight(elId, value) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!el.dataset.baseColorClass) {
+    const colorClass = Array.from(el.classList).find((c) => c.startsWith('text-') && c !== 'text-red-600');
+    el.dataset.baseColorClass = colorClass || '';
+  }
+  el.classList.remove('text-red-600');
+  if (el.dataset.baseColorClass) el.classList.remove(el.dataset.baseColorClass);
+
+  if (Number(value) < 0) {
+    el.classList.add('text-red-600');
+  } else if (el.dataset.baseColorClass) {
+    el.classList.add(el.dataset.baseColorClass);
+  }
+}
+
+function filterTableRows(inputId, tableId) {
+  const inputEl = document.getElementById(inputId);
+  const tableEl = document.getElementById(tableId);
+  if (!inputEl || !tableEl) return;
+
+  const query = inputEl.value.toLowerCase().trim();
+  const rows = tableEl.querySelectorAll('tbody tr');
+
+  rows.forEach((row) => {
+    if (row.cells.length === 1 && row.cells[0].hasAttribute('colspan')) return;
+    let match = false;
+    const cells = row.querySelectorAll('td');
+    for (let i = 0; i < cells.length; i++) {
+      if (cells[i].textContent.toLowerCase().includes(query)) { match = true; break; }
+    }
+    row.style.display = match ? '' : 'none';
+  });
+}
+
+// Supabase Init
+const supabaseUrl = 'https://dtygrnlkiesphhvcpvsj.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0eWdybmxraWVzcGhodmNwdnNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2ODM1NDIsImV4cCI6MjEwNTI1OTU0Mn0.CCtXBqJnVP3yBYP2llTWeiMvTz1OMbpYf57Obur9Ry8';
+const PRODUCT_IMAGE_BUCKET = 'product-images';
+
+function getProductImageUrl(path) {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  const { data } = window.supabaseClient.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
+  return data?.publicUrl || null;
+}
+
+async function uploadProductImage(file) {
+  const rawExt = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const ext = rawExt || 'jpg';
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await window.supabaseClient.storage.from(PRODUCT_IMAGE_BUCKET).upload(path, file, {
+    cacheControl: '3600',
+    upsert: false
+  });
+  if (error) throw error;
+  return path;
+}
+
+window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: true, storage: window.sessionStorage, autoRefreshToken: true, detectSessionInUrl: true }
+});
+const _supabase = window.supabaseClient;
+
+// Cache & App State
+let productsCache = [];
+let contactsCache = [];
+let pipelineCache = [];
+let allInvoicesCache = [];
+let editInvoiceItemsCache = [];
+let saleCart = [];
+let purchaseCart = [];
+let financeChart = null;
+let productChart = null;
+let topClientsChart = null;
+let pipelineChart = null;
+let dashboardInitialized = false;
+
+async function bootDashboard(session) {
+  if (dashboardInitialized) return;
+  dashboardInitialized = true;
+  document.getElementById('user-email').textContent = session.user.email;
+
+  initNav();
+  initForms();
+  initSearchEvents();
+  initDateFilterEvents();
+
+  try {
+    await Promise.all([fetchProducts(), fetchContacts()]);
+    await fetchPipeline();
+    await fetchAllInvoices();
+    await loadDashboard();
+    initRealtime();
+  } catch (err) {
+    console.error('Initialization error:', err);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  _supabase.auth.onAuthStateChange((event, session) => {
+    if (session) bootDashboard(session);
+    else if (event === 'SIGNED_OUT') window.location.href = 'index.html';
+  });
+
+  try {
+    const { data, error } = await _supabase.auth.getSession();
+    if (!error && data?.session) { await bootDashboard(data.session); return; }
+  } catch (err) { console.error('Session error:', err); }
+
+  setTimeout(() => { if (!dashboardInitialized) window.location.href = 'index.html'; }, 800);
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await _supabase.auth.signOut();
+  window.location.href = 'index.html';
+});
+
+function initRealtime() {
+  subscribeRealtimeChannel();
+
+  // Safety net: if the tab becomes visible again or the network comes back,
+  // force a full refresh (the realtime channel may have silently disconnected).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') scheduleFullRefresh(0);
+  });
+  window.addEventListener('online', () => scheduleFullRefresh(0));
+
+  // Additional safety net: a discreet refresh every 15s,
+  // in case a realtime event was missed.
+  setInterval(() => scheduleFullRefresh(0), 15000);
+}
+
+let _realtimeChannel = null;
+let _realtimeRetryDelay = 1000;
+
+function subscribeRealtimeChannel() {
+  if (_realtimeChannel) {
+    _supabase.removeChannel(_realtimeChannel);
+  }
+
+  _realtimeChannel = _supabase.channel('realtime:all')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => scheduleFullRefresh())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts' }, () => scheduleFullRefresh())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => scheduleFullRefresh())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline' }, () => scheduleFullRefresh())
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        _realtimeRetryDelay = 1000; // connection restored, reset the reconnection delay
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        // Realtime connection lost: retry with an increasing delay (max 15s)
+        setTimeout(() => {
+          subscribeRealtimeChannel();
+          scheduleFullRefresh(0); // catch up on anything that may have been missed during the outage
+        }, _realtimeRetryDelay);
+        _realtimeRetryDelay = Math.min(_realtimeRetryDelay * 2, 15000);
+      }
+    });
+}
+
+// Groups refreshes triggered in bursts (e.g. several stock updates
+// for the same invoice) into a single call, and ignores results that become stale
+// if a more recent refresh has started in the meantime.
+let _refreshDebounceTimer = null;
+let _refreshVersion = 0;
+
+function scheduleFullRefresh(delay = 400) {
+  clearTimeout(_refreshDebounceTimer);
+  _refreshDebounceTimer = setTimeout(runFullRefresh, delay);
+}
+
+async function runFullRefresh() {
+  const myVersion = ++_refreshVersion;
+  try {
+    await Promise.all([fetchProducts(), fetchContacts(), fetchAllInvoices()]);
+    await fetchPipeline();
+    if (myVersion !== _refreshVersion) return; // a more recent refresh has already taken over
+    await loadDashboard();
+  } catch (err) {
+    console.error('Refresh error:', err);
+  }
+}
+
+// Navigation Tab Management
+const pageTitles = {
+  dashboard: 'Dashboard',
+  clients: 'Leads & Clients',
+  suppliers: 'Suppliers & Purchases',
+  invoices: 'Invoices & Transactions',
+  stocks: 'Inventory Management',
+  pipeline: 'Sales Pipeline'
+};
+
+function initNav() {
+  document.querySelectorAll('.nav-btn[data-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-section').forEach((s) => s.classList.add('hidden'));
+      document.getElementById('tab-' + tab).classList.remove('hidden');
+      document.querySelectorAll('.nav-btn[data-tab]').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('page-title').textContent = pageTitles[tab];
+      closeSidebar();
+    });
+  });
+}
+
+function initSearchEvents() {
+  document.getElementById('invoices-filter-type-input').addEventListener('change', renderAllInvoicesTable);
+  document.getElementById('invoices-search-input').addEventListener('input', () => filterTableRows('invoices-search-input', 'invoices-table'));
+  document.getElementById('clients-search-input').addEventListener('input', () => filterTableRows('clients-search-input', 'clients-table'));
+  document.getElementById('suppliers-search-input').addEventListener('input', () => filterTableRows('suppliers-search-input', 'suppliers-table'));
+  document.getElementById('products-search-input').addEventListener('input', () => filterTableRows('products-search-input', 'stocks-table'));
+  document.getElementById('pipeline-search-input').addEventListener('input', filterPipelineCards);
+}
+
+// Filtre Temporel
+function initDateFilterEvents() {
+  const modeSelect = document.getElementById('dashboard-date-mode');
+  const singleContainer = document.getElementById('date-single-container');
+  const rangeContainer = document.getElementById('date-range-container');
+
+  modeSelect.addEventListener('change', () => {
+    const val = modeSelect.value;
+    singleContainer.classList.add('hidden');
+    rangeContainer.classList.add('hidden');
+    closeAllCalendarPopovers();
+    if (val === 'single') singleContainer.classList.remove('hidden');
+    if (val === 'range') rangeContainer.classList.remove('hidden');
+    loadDashboard();
+  });
+
+  document.getElementById('apply-date-filter-btn').addEventListener('click', () => loadDashboard());
+
+  initCalendarWidgets();
+}
+
+function getDateFilterRange() {
+  const mode = document.getElementById('dashboard-date-mode').value;
+  if (mode === 'global') return null;
+
+  if (mode === 'single') {
+    const val = document.getElementById('date-single-input').value;
+    if (!val) return null;
+    const start = new Date(val); start.setHours(0,0,0,0);
+    const end = new Date(val); end.setHours(23,59,59,999);
+    return { start, end };
+  }
+
+  if (mode === 'range') {
+    const sVal = document.getElementById('date-start-input').value;
+    const eVal = document.getElementById('date-end-input').value;
+    if (!sVal || !eVal) return null;
+    const start = new Date(sVal); start.setHours(0,0,0,0);
+    const end = new Date(eVal); end.setHours(23,59,59,999);
+    return { start, end };
+  }
+  return null;
+}
+
+// ===================== CALENDRIER INTERACTIF (filtre temporel) =====================
+const CAL_WEEKDAYS_FR = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const CAL_MONTHS_FR = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+let calSingleViewDate = new Date();
+let calSingleSelected = null;
+
+let calRangeViewDate = new Date();
+let calRangeStart = null;
+let calRangeEnd = null;
+
+function calFmtInput(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function calFmtDisplay(d) {
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+function calParseInput(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function closeAllCalendarPopovers() {
+  document.getElementById('calendar-single-popover').classList.add('hidden');
+  document.getElementById('calendar-range-popover').classList.add('hidden');
+}
+
+function buildCalendarMonthHtml(viewDate, dayClassFn) {
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  let startOffset = firstOfMonth.getDay() - 1;
+  if (startOffset < 0) startOffset = 6;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  let html = `
+    <div class="flex items-center justify-between mb-2">
+      <button type="button" data-cal-nav="prev" class="p-1 rounded-md hover:bg-slate-100 text-slate-500"><i data-lucide="chevron-left" class="h-4 w-4"></i></button>
+      <span class="text-xs font-semibold text-slate-700">${CAL_MONTHS_FR[month]} ${year}</span>
+      <button type="button" data-cal-nav="next" class="p-1 rounded-md hover:bg-slate-100 text-slate-500"><i data-lucide="chevron-right" class="h-4 w-4"></i></button>
+    </div>
+    <div class="grid grid-cols-7 gap-y-1 mb-1">
+      ${CAL_WEEKDAYS_FR.map((w) => `<span class="text-[10px] font-semibold text-slate-400 text-center">${w}</span>`).join('')}
+    </div>
+    <div class="grid grid-cols-7 gap-y-1">`;
+
+  for (let i = 0; i < startOffset; i++) html += `<span></span>`;
+
+  const todayStr = calFmtInput(new Date());
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateObj = new Date(year, month, d);
+    const dateStr = calFmtInput(dateObj);
+    const extraCls = dayClassFn(dateStr);
+    const isToday = dateStr === todayStr;
+    html += `<span data-cal-day="${dateStr}" class="cal-day text-xs text-center leading-8 h-8 w-8 mx-auto rounded-full cursor-pointer transition-colors ${extraCls}${isToday && !extraCls.includes('bg-blue-600') ? ' ring-1 ring-inset ring-blue-300' : ''}">${d}</span>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function renderSingleCalendar() {
+  const pop = document.getElementById('calendar-single-popover');
+  const dayClassFn = (dateStr) => {
+    if (calSingleSelected === dateStr) return 'bg-blue-600 text-white font-semibold hover:bg-blue-600';
+    return 'text-slate-600 hover:bg-blue-50';
+  };
+  pop.innerHTML = buildCalendarMonthHtml(calSingleViewDate, dayClassFn) + `
+    <button type="button" data-cal-clear="single" class="mt-2 w-full text-center text-[11px] text-slate-400 hover:text-slate-600">Clear selection</button>`;
+  lucide.createIcons();
+
+  pop.querySelector('[data-cal-nav="prev"]').addEventListener('click', () => { calSingleViewDate.setMonth(calSingleViewDate.getMonth() - 1); renderSingleCalendar(); });
+  pop.querySelector('[data-cal-nav="next"]').addEventListener('click', () => { calSingleViewDate.setMonth(calSingleViewDate.getMonth() + 1); renderSingleCalendar(); });
+  pop.querySelector('[data-cal-clear="single"]').addEventListener('click', () => {
+    calSingleSelected = null;
+    document.getElementById('date-single-input').value = '';
+    document.getElementById('date-single-label').textContent = 'Choose a date';
+    renderSingleCalendar();
+    loadDashboard();
+  });
+  pop.querySelectorAll('[data-cal-day]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const dateStr = el.dataset.calDay;
+      calSingleSelected = dateStr;
+      document.getElementById('date-single-input').value = dateStr;
+      document.getElementById('date-single-label').textContent = calFmtDisplay(calParseInput(dateStr));
+      closeAllCalendarPopovers();
+      loadDashboard();
+    });
+  });
+}
+
+function renderRangeCalendar() {
+  const pop = document.getElementById('calendar-range-popover');
+  const dayClassFn = (dateStr) => {
+    if (calRangeStart && dateStr === calRangeStart) return 'bg-blue-600 text-white font-semibold hover:bg-blue-600';
+    if (calRangeEnd && dateStr === calRangeEnd) return 'bg-blue-600 text-white font-semibold hover:bg-blue-600';
+    if (calRangeStart && calRangeEnd && dateStr > calRangeStart && dateStr < calRangeEnd) return 'bg-blue-100 text-blue-700';
+    return 'text-slate-600 hover:bg-blue-50';
+  };
+  pop.innerHTML = buildCalendarMonthHtml(calRangeViewDate, dayClassFn) + `
+    <p class="mt-2 text-[11px] text-slate-500 text-center">${calRangeStart ? calFmtDisplay(calParseInput(calRangeStart)) : '…'} → ${calRangeEnd ? calFmtDisplay(calParseInput(calRangeEnd)) : '…'}</p>
+    <button type="button" data-cal-clear="range" class="mt-1 w-full text-center text-[11px] text-slate-400 hover:text-slate-600">Clear selection</button>`;
+  lucide.createIcons();
+
+  pop.querySelector('[data-cal-nav="prev"]').addEventListener('click', () => { calRangeViewDate.setMonth(calRangeViewDate.getMonth() - 1); renderRangeCalendar(); });
+  pop.querySelector('[data-cal-nav="next"]').addEventListener('click', () => { calRangeViewDate.setMonth(calRangeViewDate.getMonth() + 1); renderRangeCalendar(); });
+  pop.querySelector('[data-cal-clear="range"]').addEventListener('click', () => {
+    calRangeStart = null; calRangeEnd = null;
+    document.getElementById('date-start-input').value = '';
+    document.getElementById('date-end-input').value = '';
+    document.getElementById('date-range-label').textContent = 'Choose a range';
+    renderRangeCalendar();
+    loadDashboard();
+  });
+  pop.querySelectorAll('[data-cal-day]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const dateStr = el.dataset.calDay;
+      if (!calRangeStart || (calRangeStart && calRangeEnd)) {
+        calRangeStart = dateStr; calRangeEnd = null;
+      } else if (dateStr < calRangeStart) {
+        calRangeEnd = calRangeStart; calRangeStart = dateStr;
+      } else {
+        calRangeEnd = dateStr;
+      }
+      renderRangeCalendar();
+      if (calRangeStart && calRangeEnd) {
+        document.getElementById('date-start-input').value = calRangeStart;
+        document.getElementById('date-end-input').value = calRangeEnd;
+        document.getElementById('date-range-label').textContent = `${calFmtDisplay(calParseInput(calRangeStart))} → ${calFmtDisplay(calParseInput(calRangeEnd))}`;
+        closeAllCalendarPopovers();
+        loadDashboard();
+      }
+    });
+  });
+}
+
+function initCalendarWidgets() {
+  const singleTrigger = document.getElementById('date-single-trigger');
+  const rangeTrigger = document.getElementById('date-range-trigger');
+  const singlePop = document.getElementById('calendar-single-popover');
+  const rangePop = document.getElementById('calendar-range-popover');
+
+  singleTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willOpen = singlePop.classList.contains('hidden');
+    closeAllCalendarPopovers();
+    if (willOpen) { renderSingleCalendar(); singlePop.classList.remove('hidden'); }
+  });
+
+  rangeTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willOpen = rangePop.classList.contains('hidden');
+    closeAllCalendarPopovers();
+    if (willOpen) { renderRangeCalendar(); rangePop.classList.remove('hidden'); }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!singlePop.contains(e.target) && e.target !== singleTrigger && !singleTrigger.contains(e.target)) singlePop.classList.add('hidden');
+    if (!rangePop.contains(e.target) && e.target !== rangeTrigger && !rangeTrigger.contains(e.target)) rangePop.classList.add('hidden');
+  });
+}
+
+// Stocks / Produits
+let _productsFetchVersion = 0;
+async function fetchProducts() {
+  const myVer = ++_productsFetchVersion;
+  const { data, error } = await _supabase.from('products').select('*').order('name');
+  if (error) { console.error(error); return; }
+  if (myVer !== _productsFetchVersion) return; // a more recent request has already responded, ignore this one
+  productsCache = data || [];
+  renderStocksTable();
+  populateProductSelects();
+  renderStockAlert();
+}
+
+function renderStocksTable() {
+  const body = document.getElementById('stocks-table-body');
+  body.innerHTML = productsCache.map((p) => {
+    const statusBadge = p.stock_quantity <= 0
+      ? '<span class="badge bg-slate-200 text-slate-600">Out of Stock</span>'
+      : (p.stock_quantity < 10
+        ? '<span class="badge bg-rose-100 text-rose-700">Low Stock</span>'
+        : '<span class="badge bg-emerald-100 text-emerald-700">In Stock</span>');
+    const imgUrl = getProductImageUrl(p.image_path);
+    const thumb = imgUrl
+      ? `<img src="${imgUrl}" class="h-9 w-9 rounded-md object-cover border border-slate-200">`
+      : `<div class="h-9 w-9 rounded-md bg-slate-100 flex items-center justify-center text-slate-300"><i data-lucide="image" class="h-4 w-4"></i></div>`;
+    return `
+    <tr>
+      <td class="font-mono text-xs text-slate-500">${fmtId(p.id)}</td>
+      <td>${thumb}</td>
+      <td class="font-medium">${p.name}</td>
+      <td class="text-xs text-slate-500">${p.category || '—'}</td>
+      <td>${p.stock_quantity}</td>
+      <td>${fmtUSD(p.unit_price)}</td>
+      <td>${statusBadge}</td>
+      <td class="flex gap-1">
+        <button onclick="openEditModal('${p.id}')" class="btn-secondary text-xs !py-1 !px-2"><i data-lucide="edit-3" class="h-3.5 w-3.5"></i> Éditer</button>
+        <button onclick="deleteProduct('${p.id}')" class="btn-danger text-xs !py-1 !px-2"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" class="text-slate-400 text-center py-4">No products found</td></tr>`;
+  filterTableRows('products-search-input', 'stocks-table');
+  lucide.createIcons();
+}
+
+function populateProductSelects() {
+  const options = productsCache.map((p) => `<option value="${p.id}" data-price="${p.unit_price}">${p.name} (ID: ${fmtId(p.id)})</option>`).join('');
+  document.getElementById('sale-item-product').innerHTML = options;
+  document.getElementById('purchase-item-product').innerHTML = options;
+  syncPriceField('sale-item-product', 'sale-item-price');
+  syncPriceField('purchase-item-product', 'purchase-item-price');
+}
+
+function syncPriceField(selectId, priceId) {
+  const select = document.getElementById(selectId);
+  const price = document.getElementById(priceId);
+  const update = () => {
+    const opt = select.options[select.selectedIndex];
+    price.value = opt ? Number(opt.dataset.price || 0).toFixed(2) : '';
+  };
+  select.onchange = update;
+  update();
+}
+
+function renderStockAlert() {
+  const low = productsCache.filter((p) => p.stock_quantity < 10);
+  const box = document.getElementById('stock-alert');
+  if (!low.length) { box.classList.add('hidden'); return; }
+  document.getElementById('stock-alert-list').textContent = low.map((p) => `${p.name} [ID: ${fmtId(p.id)}] (${p.stock_quantity} remaining)`).join(', ');
+  box.classList.remove('hidden');
+}
+
+function openEditModal(productId) {
+  const prod = productsCache.find(p => p.id === productId);
+  if (!prod) return;
+  document.getElementById('edit-product-id').value = prod.id;
+  document.getElementById('edit-product-name').value = prod.name;
+  document.getElementById('edit-product-category').value = prod.category || 'Accessories';
+  document.getElementById('edit-product-stock').value = prod.stock_quantity;
+  document.getElementById('edit-product-price').value = prod.unit_price;
+  document.getElementById('edit-product-description').value = prod.description || '';
+  document.getElementById('edit-product-image').value = '';
+  document.getElementById('modal-edit-product').classList.remove('hidden');
+}
+
+function closeEditModal() { document.getElementById('modal-edit-product').classList.add('hidden'); }
+
+document.getElementById('form-edit-product').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('edit-product-id').value;
+  const name = document.getElementById('edit-product-name').value.trim();
+  const category = document.getElementById('edit-product-category').value;
+  const stock_quantity = Number(document.getElementById('edit-product-stock').value);
+  const unit_price = Number(document.getElementById('edit-product-price').value);
+  const description = document.getElementById('edit-product-description').value.trim();
+  const file = document.getElementById('edit-product-image').files[0];
+
+  const payload = { name, category, stock_quantity, unit_price, description };
+  try {
+    if (file) payload.image_path = await uploadProductImage(file);
+    const { error } = await _supabase.from('products').update(payload).eq('id', id);
+    if (error) throw error;
+    closeEditModal();
+    await fetchProducts();
+    await loadDashboard();
+  } catch (err) {
+    alert("Update error: " + err.message);
+  }
+});
+
+async function deleteProduct(id) {
+  if (!confirm("Delete this product?")) return;
+  const { error } = await _supabase.from('products').delete().eq('id', id);
+  if (error) { alert("Deletion error: " + error.message); return; }
+  await fetchProducts();
+  await loadDashboard();
+}
+
+// Contacts (Leads & Clients)
+let _contactsFetchVersion = 0;
+async function fetchContacts() {
+  const myVer = ++_contactsFetchVersion;
+  const { data, error } = await _supabase.from('contacts').select('*').order('created_at', { ascending: false });
+  if (error) { console.error(error); return; }
+  if (myVer !== _contactsFetchVersion) return;
+  contactsCache = data || [];
+  populateContactSelects();
+  await renderContactsTables();
+  document.getElementById('kpi-contacts').textContent = contactsCache.length;
+}
+
+async function renderContactsTables() {
+  const clientLeads = contactsCache.filter((c) => c.type === 'client' || c.type === 'lead');
+  const suppliers = contactsCache.filter((c) => c.type === 'fournisseur');
+
+  // Fetch the latest invoice linked to each contact to display it next to the Lead
+  const { data: leadInvoices } = await _supabase.from('transactions').select('id, invoice_number, contact_id').eq('type', 'vente');
+  const invoicesMap = {};
+  if (leadInvoices) {
+    leadInvoices.forEach(inv => { invoicesMap[inv.contact_id] = inv; });
+  }
+
+  document.getElementById('clients-list-body').innerHTML = clientLeads.map((c) => {
+    const inv = invoicesMap[c.id];
+    const invoiceDisplay = inv 
+      ? `<button onclick="openInvoiceModal('${inv.id}')" class="font-semibold text-blue-600 hover:underline flex items-center gap-1"><i data-lucide="file-text" class="h-3.5 w-3.5"></i> ${inv.invoice_number}</button>`
+      : `<span class="text-xs text-slate-400 italic">None</span>`;
+
+    return `
+    <tr>
+      <td class="font-mono text-xs text-slate-500">${fmtId(c.id)}</td>
+      <td class="font-medium">${c.name}</td>
+      <td>${c.type === 'client' ? '<span class="badge bg-emerald-100 text-emerald-700">Client</span>' : '<span class="badge bg-amber-100 text-amber-700">Lead</span>'}</td>
+      <td>${invoiceDisplay}</td>
+      <td class="text-xs text-slate-500">${fmtDateTime(c.created_at)}</td>
+      <td>${c.email || '—'}</td>
+      <td>${c.phone || '—'}</td>
+      <td class="flex gap-1">
+        <button onclick="openEditContactModal('${c.id}')" class="btn-secondary text-xs !py-1 !px-2"><i data-lucide="edit-3" class="h-3.5 w-3.5"></i></button>
+        <button onclick="deleteContact('${c.id}')" class="btn-danger text-xs !py-1 !px-2"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" class="text-slate-400 text-center py-4">No leads or clients</td></tr>`;
+
+  document.getElementById('suppliers-list-body').innerHTML = suppliers.map((c) => `
+    <tr>
+      <td class="font-mono text-xs text-slate-500">${fmtId(c.id)}</td>
+      <td class="font-medium">${c.name}</td>
+      <td>${c.email || '—'}</td>
+      <td>${c.phone || '—'}</td>
+      <td>${c.address || '—'}</td>
+      <td class="flex gap-1">
+        <button onclick="openEditContactModal('${c.id}')" class="btn-secondary text-xs !py-1 !px-2"><i data-lucide="edit-3" class="h-3.5 w-3.5"></i></button>
+        <button onclick="deleteContact('${c.id}')" class="btn-danger text-xs !py-1 !px-2"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+      </td>
+    </tr>`).join('') || `<tr><td colspan="6" class="text-slate-400 text-center py-4">No suppliers</td></tr>`;
+
+  filterTableRows('clients-search-input', 'clients-table');
+  filterTableRows('suppliers-search-input', 'suppliers-table');
+  lucide.createIcons();
+}
+
+function populateContactSelects() {
+  const clientLeads = contactsCache.filter((c) => c.type === 'client' || c.type === 'lead');
+  const suppliers = contactsCache.filter((c) => c.type === 'fournisseur');
+
+  document.getElementById('sale-client').innerHTML = '<option value="">Select a Lead / Client...</option>' + clientLeads.map((c) => `<option value="${c.id}">${c.name} (ID: ${fmtId(c.id)}) [${c.type.toUpperCase()}]</option>`).join('');
+  document.getElementById('purchase-supplier').innerHTML = '<option value="">Select a supplier...</option>' + suppliers.map((c) => `<option value="${c.id}">${c.name} (ID: ${fmtId(c.id)})</option>`).join('');
+}
+
+function openEditContactModal(contactId) {
+  const contact = contactsCache.find(c => c.id === contactId);
+  if (!contact) return;
+  document.getElementById('edit-contact-id').value = contact.id;
+  document.getElementById('edit-contact-name').value = contact.name;
+  document.getElementById('edit-contact-email').value = contact.email || '';
+  document.getElementById('edit-contact-phone').value = contact.phone || '';
+  document.getElementById('edit-contact-address').value = contact.address || '';
+  document.getElementById('modal-edit-contact').classList.remove('hidden');
+}
+
+function closeContactModal() { document.getElementById('modal-edit-contact').classList.add('hidden'); }
+
+document.getElementById('form-edit-contact').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('edit-contact-id').value;
+  const name = document.getElementById('edit-contact-name').value.trim();
+  const email = document.getElementById('edit-contact-email').value.trim() || null;
+  const phone = document.getElementById('edit-contact-phone').value.trim() || null;
+  const address = document.getElementById('edit-contact-address').value.trim() || null;
+
+  const { error } = await _supabase.from('contacts').update({ name, email, phone, address }).eq('id', id);
+  if (error) { alert("Update error: " + error.message); return; }
+  closeContactModal();
+  await fetchContacts();
+  await loadDashboard();
+});
+
+async function deleteContact(id) {
+  if (!confirm("Delete this contact?")) return;
+  const { error } = await _supabase.from('contacts').delete().eq('id', id);
+  if (error) { alert("Deletion error: " + error.message); return; }
+  await fetchContacts();
+  await loadDashboard();
+}
+
+function initForms() {
+  document.getElementById('form-add-client').addEventListener('submit', (e) => handleAddContact(e, 'lead'));
+  document.getElementById('form-add-supplier').addEventListener('submit', (e) => handleAddContact(e, 'fournisseur'));
+  document.getElementById('form-add-product').addEventListener('submit', handleAddProduct);
+
+  document.getElementById('sale-add-item').addEventListener('click', () => addCartItem('sale'));
+  document.getElementById('purchase-add-item').addEventListener('click', () => addCartItem('purchase'));
+
+  document.getElementById('sale-validate').addEventListener('click', () => validateTransaction('vente'));
+  document.getElementById('purchase-validate').addEventListener('click', () => validateTransaction('achat'));
+}
+
+async function handleAddContact(e, type) {
+  e.preventDefault();
+  const form = e.target;
+  const payload = {
+    name: form.name.value.trim(),
+    email: form.email.value.trim() || null,
+    phone: form.phone.value.trim() || null,
+    address: form.address.value.trim() || null,
+    type: type,
+    created_at: new Date().toISOString()
+  };
+  const { error } = await _supabase.from('contacts').insert(payload);
+  if (error) { alert("Creation error: " + error.message); return; }
+  form.reset();
+  await fetchContacts();
+  await loadDashboard();
+}
+
+async function handleAddProduct(e) {
+  e.preventDefault();
+  const form = e.target;
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const name = form.name.value.trim();
+  const category = form.category.value;
+  const description = form.description.value.trim();
+  const stockToAdd = Number(form.stock_quantity.value);
+  const unitPrice = Number(form.unit_price.value);
+  const file = form.image.files && form.image.files[0];
+
+  submitBtn.disabled = true;
+  try {
+    let imagePath = null;
+    if (file) imagePath = await uploadProductImage(file);
+
+    const existingProduct = productsCache.find((p) => p.name.toLowerCase() === name.toLowerCase());
+
+    if (existingProduct) {
+      const updatePayload = {
+        stock_quantity: existingProduct.stock_quantity + stockToAdd,
+        unit_price: unitPrice,
+        category: category || existingProduct.category
+      };
+      if (description) updatePayload.description = description;
+      if (imagePath) updatePayload.image_path = imagePath;
+      await _supabase.from('products').update(updatePayload).eq('id', existingProduct.id);
+    } else {
+      await _supabase.from('products').insert({
+        name,
+        category,
+        description,
+        image_path: imagePath,
+        stock_quantity: stockToAdd,
+        unit_price: unitPrice,
+        created_at: new Date().toISOString()
+      });
+    }
+
+    form.reset();
+    await fetchProducts();
+    await loadDashboard();
+  } catch (err) {
+    alert('Error adding product: ' + err.message);
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+// Panier et Transactions Manuel
+function addCartItem(kind) {
+  const productSelect = document.getElementById(`${kind}-item-product`);
+  const qtyInput = document.getElementById(`${kind}-item-qty`);
+  const priceInput = document.getElementById(`${kind}-item-price`);
+
+  const opt = productSelect.options[productSelect.selectedIndex];
+  if (!opt) return;
+
+  const qty = Number(qtyInput.value);
+  const price = Number(priceInput.value);
+  if (!qty || qty <= 0 || price < 0) return;
+
+  const prodObj = productsCache.find(p => p.id === opt.value);
+  const cart = kind === 'sale' ? saleCart : purchaseCart;
+
+  cart.push({ product_id: opt.value, name: prodObj ? prodObj.name : opt.textContent, quantity: qty, unit_price: price, subtotal: qty * price });
+  renderCart(kind);
+  qtyInput.value = 1;
+}
+
+function renderCart(kind) {
+  const cart = kind === 'sale' ? saleCart : purchaseCart;
+  const body = document.getElementById(`${kind}-cart-body`);
+  const totalEl = document.getElementById(`${kind}-cart-total`);
+  const validateBtn = document.getElementById(`${kind}-validate`);
+
+  body.innerHTML = cart.map((item, idx) => `
+    <tr>
+      <td class="font-mono text-xs text-slate-500">${fmtId(item.product_id)}</td>
+      <td>${item.name}</td>
+      <td>${item.quantity}</td>
+      <td>${fmtUSD(item.unit_price)}</td>
+      <td>${fmtUSD(item.subtotal)}</td>
+      <td><button data-idx="${idx}" class="remove-cart-item text-rose-500 hover:text-rose-700"><i data-lucide="trash-2" class="h-4 w-4"></i></button></td>
+    </tr>`).join('');
+
+  const total = cart.reduce((sum, i) => sum + i.subtotal, 0);
+  totalEl.textContent = fmtUSD(total);
+  validateBtn.disabled = cart.length === 0;
+
+  lucide.createIcons();
+  body.querySelectorAll('.remove-cart-item').forEach((btn) => {
+    btn.addEventListener('click', () => { cart.splice(Number(btn.dataset.idx), 1); renderCart(kind); });
+  });
+}
+
+async function validateTransaction(type) {
+  const isSale = type === 'vente';
+  const cart = isSale ? saleCart : purchaseCart;
+  if (!cart.length) return;
+
+  const contactId = isSale ? document.getElementById('sale-client').value : document.getElementById('purchase-supplier').value;
+  if (!contactId) { alert('Please select a contact.'); return; }
+
+  const invoiceInput = document.getElementById(isSale ? 'sale-invoice' : 'purchase-invoice');
+  const invoiceNumber = invoiceInput.value.trim() || `${isSale ? 'INV' : 'PO'}-${Date.now().toString().slice(-6)}`;
+  const totalAmount = cart.reduce((sum, i) => sum + i.subtotal, 0);
+
+  const { data: tx, error: txError } = await _supabase
+    .from('transactions')
+    .insert({ type, contact_id: contactId, total_amount: totalAmount, invoice_number: invoiceNumber, created_at: new Date().toISOString() })
+    .select().single();
+
+  if (txError) { alert('Invoice error: ' + txError.message); return; }
+
+  const items = cart.map((i) => ({ transaction_id: tx.id, product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price }));
+  await _supabase.from('transaction_items').insert(items);
+
+  for (const item of cart) {
+    const currentProd = productsCache.find((p) => p.id === item.product_id);
+    if (currentProd) {
+      const newStock = isSale ? Math.max(0, currentProd.stock_quantity - item.quantity) : currentProd.stock_quantity + item.quantity;
+      await _supabase.from('products').update({ stock_quantity: newStock }).eq('id', item.product_id);
+    }
+  }
+
+  // If this is a sale invoice linked to a contact, automatically create
+  // a Pipeline card (Lead / Prospect column) if that contact doesn't have one yet.
+  if (isSale) {
+    const { data: existingOpp, error: existingOppError } = await _supabase
+      .from('pipeline').select('id').eq('contact_id', contactId).limit(1);
+    if (existingOppError) console.error('Error checking existing pipeline entry:', existingOppError);
+
+    if (!existingOpp || existingOpp.length === 0) {
+      const contact = contactsCache.find((c) => String(c.id) === String(contactId));
+      const { error: oppError } = await _supabase.from('pipeline').insert({
+        title: contact ? contact.name : `Opportunity ${invoiceNumber}`,
+        contact_id: contactId,
+        stage: 'prospect',
+        estimated_value: totalAmount,
+        moved_to_stage_at: new Date().toISOString()
+      });
+      if (oppError) {
+        console.error('Error creating Pipeline opportunity:', oppError);
+        alert('Invoice created, but the Pipeline card could not be created: ' + oppError.message);
+      }
+    }
+  }
+
+  cart.length = 0;
+  renderCart(isSale ? 'sale' : 'purchase');
+  invoiceInput.value = '';
+
+  await fetchProducts();
+  await fetchContacts();
+  await fetchAllInvoices();
+  await fetchPipeline();
+  await loadDashboard();
+}
+
+// Visualisation / Modification des Factures
+let _invoicesFetchVersion = 0;
+async function fetchAllInvoices() {
+  const myVer = ++_invoicesFetchVersion;
+  const { data, error } = await _supabase
+    .from('transactions')
+    .select('id, invoice_number, total_amount, type, created_at, contact_id, contacts(id, name, type)')
+    .order('created_at', { ascending: false });
+
+  if (error) { console.error(error); return; }
+  if (myVer !== _invoicesFetchVersion) return;
+  allInvoicesCache = data || [];
+  renderAllInvoicesTable();
+  if (pipelineCache.length) renderPipelineCards();
+}
+
+function renderAllInvoicesTable() {
+  const filterType = document.getElementById('invoices-filter-type-input').value;
+
+  // Filtering: a "sale" invoice appears ONLY if the contact has "client" status (Won)
+  const filtered = allInvoicesCache.filter((inv) => {
+    if (inv.type === 'vente' && inv.contacts && inv.contacts.type === 'lead') return false;
+    return filterType === 'all' || inv.type === filterType;
+  });
+
+  document.getElementById('all-invoices-body').innerHTML = filtered.map((inv) => `
+    <tr>
+      <td class="font-medium text-blue-600 hover:underline cursor-pointer" onclick="openInvoiceModal('${inv.id}')">${inv.invoice_number}</td>
+      <td>${inv.type === 'vente' ? '<span class="badge bg-blue-100 text-blue-700">Sale</span>' : '<span class="badge bg-amber-100 text-amber-700">Purchase</span>'}</td>
+      <td>${inv.contacts?.name || '—'} <span class="font-mono text-xs text-slate-400">(ID: ${fmtId(inv.contacts?.id || inv.contact_id)})</span></td>
+      <td>${fmtDateTime(inv.created_at)}</td>
+      <td class="font-semibold">${fmtUSD(inv.total_amount)}</td>
+      <td class="flex gap-1">
+        <button onclick="openInvoiceModal('${inv.id}')" class="btn-secondary text-xs !py-1 !px-2"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+        <button onclick="openEditInvoiceModal('${inv.id}')" class="btn-secondary text-xs !py-1 !px-2"><i data-lucide="edit-3" class="h-3.5 w-3.5"></i></button>
+        <button onclick="deleteInvoice('${inv.id}')" class="btn-danger text-xs !py-1 !px-2"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+      </td>
+    </tr>`).join('') || `<tr><td colspan="6" class="text-slate-400 text-center py-4">No invoices recorded</td></tr>`;
+
+  filterTableRows('invoices-search-input', 'invoices-table');
+  lucide.createIcons();
+}
+
+async function openInvoiceModal(transactionId) {
+  const { data: tx } = await _supabase.from('transactions').select('invoice_number, total_amount, created_at, type, contact_id, contacts(id, name)').eq('id', transactionId).single();
+  const { data: items } = await _supabase.from('transaction_items').select('quantity, unit_price, product_id, products(id, name)').eq('transaction_id', transactionId);
+
+  if (!tx) return;
+  document.getElementById('modal-invoice-title').textContent = `Facture #${tx.invoice_number}`;
+  document.getElementById('modal-invoice-subtitle').textContent = `Contact: ${tx.contacts?.name || '—'} | Date: ${fmtDateTime(tx.created_at)}`;
+  document.getElementById('modal-invoice-total').textContent = fmtUSD(tx.total_amount);
+
+  document.getElementById('modal-invoice-items').innerHTML = (items || []).map((i) => `
+    <tr>
+      <td class="font-mono text-xs text-slate-500">${fmtId(i.products?.id || i.product_id)}</td>
+      <td class="font-medium">${i.products?.name || 'Article'}</td>
+      <td>${i.quantity}</td>
+      <td>${fmtUSD(i.unit_price)}</td>
+      <td>${fmtUSD(i.quantity * i.unit_price)}</td>
+    </tr>`).join('');
+
+  document.getElementById('modal-invoice-details').classList.remove('hidden');
+}
+
+function closeInvoiceModal() { document.getElementById('modal-invoice-details').classList.add('hidden'); }
+
+async function openEditInvoiceModal(invoiceId) {
+  const inv = allInvoicesCache.find(i => i.id === invoiceId);
+  if (!inv) return;
+
+  const { data: items } = await _supabase.from('transaction_items').select('id, product_id, quantity, unit_price, products(name)').eq('transaction_id', invoiceId);
+  editInvoiceItemsCache = (items || []).map(i => ({ ...i, original_quantity: i.quantity }));
+
+  document.getElementById('edit-invoice-id').value = inv.id;
+  document.getElementById('edit-invoice-number').value = inv.invoice_number;
+
+  renderEditInvoiceItems();
+  document.getElementById('modal-edit-invoice').classList.remove('hidden');
+}
+
+function renderEditInvoiceItems() {
+  const container = document.getElementById('edit-invoice-items-container');
+  let total = 0;
+
+  container.innerHTML = editInvoiceItemsCache.map((item, index) => {
+    const subtotal = item.quantity * item.unit_price;
+    total += subtotal;
+    return `
+      <div class="grid grid-cols-12 gap-2 items-center bg-slate-50 p-2 border border-slate-200 rounded text-xs">
+        <div class="col-span-5 font-medium text-slate-700 truncate">${item.products?.name || 'Product'}</div>
+        <div class="col-span-3">
+          <label class="text-[10px] text-slate-400 block">Qty</label>
+          <input type="number" min="0" value="${item.quantity}" onchange="updateEditItemQty(${index}, this.value)" class="field-input !py-1 !px-1.5 text-xs">
+        </div>
+        <div class="col-span-4 text-right">
+          <label class="text-[10px] text-slate-400 block">Subtotal</label>
+          <span class="font-semibold text-slate-800">${fmtUSD(subtotal)}</span>
+        </div>
+      </div>`;
+  }).join('') || `<p class="text-xs text-slate-400">No items attached</p>`;
+
+  document.getElementById('edit-invoice-calculated-total').textContent = fmtUSD(total);
+}
+
+function updateEditItemQty(index, newQty) {
+  const q = Number(newQty);
+  if (isNaN(q) || q < 0) return;
+  editInvoiceItemsCache[index].quantity = q;
+  renderEditInvoiceItems();
+}
+
+function closeEditInvoiceModal() { document.getElementById('modal-edit-invoice').classList.add('hidden'); }
+
+document.getElementById('form-edit-invoice').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('edit-invoice-id').value;
+  const invoice_number = document.getElementById('edit-invoice-number').value.trim();
+  const tx = allInvoicesCache.find(i => i.id === id);
+  if (!tx) return;
+
+  let total_amount = 0;
+  for (const item of editInvoiceItemsCache) {
+    total_amount += (item.quantity * item.unit_price);
+    const diff = item.quantity - item.original_quantity;
+    if (diff !== 0) {
+      await _supabase.from('transaction_items').update({ quantity: item.quantity }).eq('id', item.id);
+      const prod = productsCache.find(p => p.id === item.product_id);
+      if (prod) {
+        const adjustment = tx.type === 'vente' ? -diff : diff;
+        await _supabase.from('products').update({ stock_quantity: Math.max(0, prod.stock_quantity + adjustment) }).eq('id', item.product_id);
+      }
+    }
+  }
+
+  await _supabase.from('transactions').update({ invoice_number, total_amount }).eq('id', id);
+  closeEditInvoiceModal();
+  await fetchProducts();
+  await fetchAllInvoices();
+  await loadDashboard();
+});
+
+async function deleteInvoice(id) {
+  if (!confirm("Delete this invoice? Stock levels will be adjusted.")) return;
+  const tx = allInvoicesCache.find(i => i.id === id);
+  if (!tx) return;
+
+  const { data: items } = await _supabase.from('transaction_items').select('product_id, quantity').eq('transaction_id', id);
+  if (items) {
+    for (const item of items) {
+      const prod = productsCache.find(p => p.id === item.product_id);
+      if (prod) {
+        const newStock = tx.type === 'vente' ? prod.stock_quantity + item.quantity : Math.max(0, prod.stock_quantity - item.quantity);
+        await _supabase.from('products').update({ stock_quantity: newStock }).eq('id', item.product_id);
+      }
+    }
+  }
+
+  await _supabase.from('transactions').delete().eq('id', id);
+  await fetchProducts();
+  await fetchAllInvoices();
+  await loadDashboard();
+}
+
+// PIPELINE DE VENTES
+// (Manual opportunity creation has been removed: a Pipeline card
+// is now only created automatically, when invoicing a lead.)
+
+let _pipelineFetchVersion = 0;
+async function fetchPipeline() {
+  const myVer = ++_pipelineFetchVersion;
+  const { data, error } = await _supabase
+    .from('pipeline')
+    .select('id, title, stage, estimated_value, contact_id, moved_to_stage_at, contacts(id, name, type)')
+    .order('id', { ascending: false });
+
+  if (error) { console.error(error); return; }
+  if (myVer !== _pipelineFetchVersion) return;
+
+  pipelineCache = data || [];
+  await check48HourRules();
+  renderPipelineCards();
+}
+
+async function check48HourRules() {
+  const now = new Date().getTime();
+  const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
+
+  for (let i = pipelineCache.length - 1; i >= 0; i--) {
+    const opp = pipelineCache[i];
+    if (!opp.moved_to_stage_at) continue;
+
+    const movedAt = new Date(opp.moved_to_stage_at).getTime();
+    const elapsed = now - movedAt;
+
+    if (elapsed >= FORTY_EIGHT_HOURS) {
+      if (opp.stage === 'perdu') {
+        await _supabase.from('pipeline').delete().eq('id', opp.id);
+        if (opp.contact_id) await _supabase.from('contacts').delete().eq('id', opp.contact_id);
+        pipelineCache.splice(i, 1);
+      }
+    }
+  }
+}
+
+function renderPipelineCards() {
+  const now = new Date().getTime();
+  const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
+
+  // Correspondance contact_id -> facture (vente) pour affichage direct dans la carte Pipeline
+  const pipelineInvoiceMap = {};
+  allInvoicesCache.forEach((inv) => {
+    if (inv.type === 'vente' && inv.contact_id) pipelineInvoiceMap[inv.contact_id] = inv;
+  });
+
+  ['prospect', 'negociation', 'gagne', 'perdu'].forEach((stage) => {
+    const col = document.getElementById(`kanban-${stage}`);
+    col.dataset.stage = stage;
+
+    const items = pipelineCache.filter((p) => {
+      if (p.stage !== stage) return false;
+      if (stage === 'gagne' && p.moved_to_stage_at) {
+        const elapsed = now - new Date(p.moved_to_stage_at).getTime();
+        if (elapsed >= FORTY_EIGHT_HOURS) return false;
+      }
+      return true;
+    });
+
+    document.getElementById(`count-${stage}`).textContent = items.length;
+
+    col.innerHTML = items.map((p) => {
+      const inv = p.contact_id ? pipelineInvoiceMap[p.contact_id] : null;
+      const invoiceBlock = inv ? `
+        <button onclick="event.stopPropagation(); openInvoiceModal('${inv.id}')" class="mt-2 w-full flex items-center justify-between gap-1 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md px-2 py-1 transition-colors">
+          <span class="flex items-center gap-1 truncate"><i data-lucide="file-text" class="h-3 w-3 flex-shrink-0"></i> ${inv.invoice_number}</span>
+          <span class="flex-shrink-0">${fmtUSD(inv.total_amount)}</span>
+        </button>` : '';
+
+      return `
+      <div class="kanban-card cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow" data-id="${p.id}">
+        <div class="flex justify-between items-start">
+          <p class="text-sm font-semibold text-slate-800">${p.title}</p>
+          <span class="font-mono text-[10px] text-slate-400">#${fmtId(p.id)}</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1 flex items-center gap-1"><i data-lucide="user" class="h-3 w-3 flex-shrink-0"></i><span class="truncate">${p.contacts?.name || '—'}</span><span class="font-mono text-[10px] text-slate-400 flex-shrink-0">(ID: ${fmtId(p.contact_id)})</span></p>
+        <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-100">
+          <span class="text-xs font-bold text-blue-600">${fmtUSD(p.estimated_value)}</span>
+          ${p.moved_to_stage_at && (p.stage === 'gagne' || p.stage === 'perdu') 
+            ? '<span class="text-[10px] text-amber-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded">48h Actif</span>' 
+            : ''}
+        </div>
+        ${invoiceBlock}
+      </div>`;
+    }).join('');
+  });
+
+  initKanbanDragAndDrop();
+  filterPipelineCards();
+  lucide.createIcons();
+}
+
+function filterPipelineCards() {
+  const query = document.getElementById('pipeline-search-input').value.toLowerCase().trim();
+  document.querySelectorAll('.kanban-card').forEach(card => {
+    card.style.display = card.textContent.toLowerCase().includes(query) ? '' : 'none';
+  });
+}
+
+function initKanbanDragAndDrop() {
+  sortable('.kanban-col', {
+    acceptFrom: '.kanban-col',
+    items: '.kanban-card',
+    placeholderClass: 'border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-lg my-2 h-20'
+  });
+
+  document.querySelectorAll('.kanban-col').forEach(col => {
+    col.removeEventListener('sortupdate', handleStageChange);
+    col.addEventListener('sortupdate', handleStageChange);
+  });
+}
+
+async function handleStageChange(e) {
+  const itemEl = e.detail.item;
+  const targetCol = e.detail.destination.container;
+  const cardId = itemEl.dataset.id;
+  const newStage = targetCol.dataset.stage;
+
+  if (!cardId || !newStage) return;
+
+  const card = pipelineCache.find(p => String(p.id) === String(cardId));
+  if (!card) return;
+
+  const oldStage = card.stage;
+  const nowIso = new Date().toISOString();
+
+  card.stage = newStage;
+  card.moved_to_stage_at = nowIso;
+
+  const { error } = await _supabase
+    .from('pipeline')
+    .update({ stage: newStage, moved_to_stage_at: nowIso })
+    .eq('id', cardId);
+
+  if (error) {
+    alert("Move error: " + error.message);
+    await fetchPipeline();
+    return;
+  }
+
+  // 1) Stock toggle: only tied to entering/leaving the Lost status.
+  //    The real invoice is never deleted: we just adjust stock in one direction or the other.
+  if (newStage === 'perdu' && oldStage !== 'perdu') {
+    try { await adjustStockForContactSales(card.contact_id, 1); } // on restitue le stock vendu
+    catch (err) { console.error('Erreur restitution stock:', err); }
+    await _supabase.from('contacts').update({ type: 'lead' }).eq('id', card.contact_id);
+  } else if (oldStage === 'perdu' && newStage !== 'perdu') {
+    try { await adjustStockForContactSales(card.contact_id, -1); } // re-deduct stock, the deal is active again
+    catch (err) { console.error('Stock re-deduction error:', err); }
+  }
+
+  // 2) Won / un-won status (contact status + placeholder invoice if needed), independent of the stock logic above
+  if (newStage === 'gagne' && oldStage !== 'gagne') {
+    try { await processWonStage(card.contact_id, card.estimated_value, card.title); }
+    catch (err) { console.error('Erreur processWonStage:', err); }
+  }
+
+  if (oldStage === 'gagne' && newStage !== 'gagne' && newStage !== 'perdu') {
+    try { await processUnwonStage(card.contact_id); }
+    catch (err) { console.error('Erreur processUnwonStage:', err); }
+  }
+
+  // The refresh always runs, even if a step above failed,
+  // to avoid stock or pipeline staying stuck on outdated data.
+  try {
+    await fetchContacts();
+    await fetchAllInvoices();
+    await fetchProducts();
+    await loadDashboard();
+  } catch (err) {
+    console.error('Refresh error after status change:', err);
+  }
+}
+
+async function processWonStage(contactId, estimatedValue, title) {
+  if (!contactId) return;
+
+  // Passe au statut Client (Won)
+  await _supabase.from('contacts').update({ type: 'client' }).eq('id', contactId);
+
+  const { data: existingTx } = await _supabase.from('transactions').select('id').eq('contact_id', contactId).eq('type', 'vente');
+  if (!existingTx || existingTx.length === 0) {
+    const invoiceNum = `INV-WON-${Date.now().toString().slice(-6)}`;
+    await _supabase.from('transactions').insert({
+      type: 'vente',
+      contact_id: contactId,
+      total_amount: estimatedValue || 0,
+      invoice_number: invoiceNum,
+      created_at: new Date().toISOString()
+    });
+  }
+}
+
+async function processUnwonStage(contactId) {
+  if (!contactId) return;
+
+  // Revert status to Lead if the deal leaves Won (the real invoice is not touched here:
+  // only passing through "Lost" adjusts stock, see handleStageChange)
+  await _supabase.from('contacts').update({ type: 'lead' }).eq('id', contactId);
+}
+
+// Adds (+1) or removes (-1) from stock the quantities of a contact's real sale invoices.
+// Used to toggle stock when an opportunity enters/leaves the Lost status,
+// WITHOUT ever deleting the original invoice (it remains the real sale history).
+async function adjustStockForContactSales(contactId, direction) {
+  if (!contactId) return true;
+
+  const { data: txs, error: txError } = await _supabase.from('transactions').select('id').eq('contact_id', contactId).eq('type', 'vente');
+  if (txError) { console.error('Error fetching invoices:', txError); return false; }
+  if (!txs || txs.length === 0) return true;
+
+  let ok = true;
+  for (const t of txs) {
+    const { data: items, error: itemsError } = await _supabase.from('transaction_items').select('product_id, quantity').eq('transaction_id', t.id);
+    if (itemsError) { console.error('Error fetching invoice items:', itemsError); ok = false; continue; }
+
+    for (const item of items || []) {
+      const { data: prodRow, error: prodErr } = await _supabase.from('products').select('stock_quantity').eq('id', item.product_id).maybeSingle();
+      if (prodErr || !prodRow) { console.error('Erreur lecture stock produit:', prodErr); ok = false; continue; }
+
+      const newQty = prodRow.stock_quantity + direction * item.quantity;
+      const { error: updateErr } = await _supabase.from('products').update({ stock_quantity: newQty }).eq('id', item.product_id);
+      if (updateErr) { console.error('Error updating product stock:', updateErr); ok = false; }
+    }
+  }
+
+  if (!ok) {
+    alert("Stock could not be adjusted correctly for an invoice linked to this lead (check write permissions on the 'products' table in Supabase).");
+  }
+
+  await fetchProducts();
+  return ok;
+}
+
+// DASHBOARD KPIS & CHARTS
+async function loadDashboard() {
+  const range = getDateFilterRange();
+
+  const [{ data: ventesData }, { data: achatsData }] = await Promise.all([
+    _supabase.from('transactions').select('id, total_amount, created_at, contact_id, contacts(id, name, type)').eq('type', 'vente'),
+    _supabase.from('transactions').select('id, total_amount, created_at').eq('type', 'achat')
+  ]);
+
+  let ventes = (ventesData || []).filter(v => v.contacts && v.contacts.type === 'client');
+  let achats = achatsData || [];
+
+  if (range) {
+    ventes = ventes.filter(v => { const d = new Date(v.created_at); return d >= range.start && d <= range.end; });
+    achats = achats.filter(a => { const d = new Date(a.created_at); return d >= range.start && d <= range.end; });
+  }
+
+  const venteIds = ventes.map(v => v.id);
+  let totalUnitsSold = 0;
+  if (venteIds.length > 0) {
+    const { data: itemsSold } = await _supabase.from('transaction_items').select('quantity').in('transaction_id', venteIds);
+    totalUnitsSold = (itemsSold || []).reduce((sum, i) => sum + Number(i.quantity || 0), 0);
+  }
+
+  const totalVentes = ventes.reduce((s, t) => s + Number(t.total_amount || 0), 0);
+  const totalAchats = achats.reduce((s, t) => s + Number(t.total_amount || 0), 0);
+  const countVentes = ventes.length;
+
+  const totalStockQty = productsCache.reduce((sum, p) => sum + Number(p.stock_quantity || 0), 0);
+  const totalStockVal = productsCache.reduce((sum, p) => sum + (p.stock_quantity * p.unit_price), 0);
+  
+  const netMargin = totalVentes - totalAchats;
+  const marginPct = totalVentes > 0 ? ((netMargin / totalVentes) * 100).toFixed(1) : '0.0';
+
+  const totalDeals = pipelineCache.length;
+  const wonDeals = pipelineCache.filter(p => p.stage === 'gagne').length;
+  const winRate = totalDeals > 0 ? ((wonDeals / totalDeals) * 100).toFixed(1) : '0.0';
+
+  document.getElementById('kpi-ca').textContent = fmtUSD(totalVentes);
+  document.getElementById('kpi-depenses').textContent = fmtUSD(totalAchats);
+  document.getElementById('kpi-marge').textContent = fmtUSD(netMargin);
+  document.getElementById('kpi-margin-pct').textContent = `${marginPct}%`;
+  document.getElementById('kpi-panier').textContent = fmtUSD(countVentes ? totalVentes / countVentes : 0);
+  document.getElementById('kpi-transactions').textContent = countVentes + achats.length;
+  document.getElementById('kpi-units').textContent = totalUnitsSold;
+  document.getElementById('kpi-stock-qty').textContent = totalStockQty;
+  document.getElementById('kpi-stock-val').textContent = fmtUSD(totalStockVal);
+  document.getElementById('kpi-contacts').textContent = contactsCache.length;
+  document.getElementById('kpi-pipeline-count').textContent = totalDeals;
+  document.getElementById('kpi-win-rate').textContent = `${winRate}%`;
+
+  // Negative figures (margin, %, etc.) are shown in red to be immediately visible
+  applyNegativeHighlight('kpi-ca', totalVentes);
+  applyNegativeHighlight('kpi-depenses', totalAchats);
+  applyNegativeHighlight('kpi-marge', netMargin);
+  applyNegativeHighlight('kpi-margin-pct', Number(marginPct));
+  applyNegativeHighlight('kpi-panier', countVentes ? totalVentes / countVentes : 0);
+  applyNegativeHighlight('kpi-units', totalUnitsSold);
+  applyNegativeHighlight('kpi-stock-qty', totalStockQty);
+  applyNegativeHighlight('kpi-stock-val', totalStockVal);
+
+  renderFinanceChart(ventes, achats);
+  await renderProductChart(range);
+  renderTopClientsChart(ventes);
+  await renderPipelineChart();
+}
+
+function groupByMonth(rows) {
+  const map = {};
+  rows.forEach((r) => {
+    const d = new Date(r.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    map[key] = (map[key] || 0) + Number(r.total_amount || 0);
+  });
+  return map;
+}
+
+function renderFinanceChart(ventes, achats) {
+  const ventesMap = groupByMonth(ventes);
+  const achatsMap = groupByMonth(achats);
+  const labels = Array.from(new Set([...Object.keys(ventesMap), ...Object.keys(achatsMap)])).sort();
+
+  const ctx = document.getElementById('chart-finance');
+  const data = {
+    labels: labels.length ? labels : ['Insufficient data'],
+    datasets: [
+      { label: 'Revenue', data: labels.map((l) => ventesMap[l] || 0), borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.1)', tension: .3, fill: true },
+      { label: 'Purchases / Expenses', data: labels.map((l) => achatsMap[l] || 0), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.1)', tension: .3, fill: true }
+    ]
+  };
+
+  if (financeChart) { financeChart.data = data; financeChart.update('none'); return; }
+  financeChart = new Chart(ctx, { type: 'line', data, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
+}
+
+async function renderProductChart(range) {
+  const { data } = await _supabase.from('transaction_items').select('quantity, products(id, name), transactions(type, created_at, contacts(type))');
+  const totals = {};
+
+  (data || []).forEach((row) => {
+    if (row.transactions?.type !== 'vente' || row.transactions?.contacts?.type !== 'client') return;
+    if (range) {
+      const d = new Date(row.transactions.created_at);
+      if (d < range.start || d > range.end) return;
+    }
+    const name = row.products?.name ? `${row.products.name}` : 'Other';
+    totals[name] = (totals[name] || 0) + Number(row.quantity || 0);
+  });
+
+  const ctx = document.getElementById('chart-products');
+  const data2 = {
+    labels: Object.keys(totals).length ? Object.keys(totals) : ['No sales'],
+    datasets: [{ data: Object.values(totals).length ? Object.values(totals) : [1], backgroundColor: ['#2563eb', '#10b981', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6'] }]
+  };
+
+  if (productChart) { productChart.data = data2; productChart.update('none'); return; }
+  productChart = new Chart(ctx, { type: 'doughnut', data: data2, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
+}
+
+function renderTopClientsChart(ventes) {
+  const totals = {};
+  ventes.forEach((v) => {
+    const name = v.contacts?.name || 'Inconnu';
+    totals[name] = (totals[name] || 0) + Number(v.total_amount || 0);
+  });
+
+  const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const ctx = document.getElementById('chart-top-clients');
+  const data = {
+    labels: sorted.length ? sorted.map(i => i[0]) : ['No clients'],
+    datasets: [{ label: 'Revenue ($)', data: sorted.length ? sorted.map(i => i[1]) : [0], backgroundColor: '#3b82f6', borderRadius: 4 }]
+  };
+
+  if (topClientsChart) { topClientsChart.data = data; topClientsChart.update('none'); return; }
+  topClientsChart = new Chart(ctx, { type: 'bar', data, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+}
+
+async function renderPipelineChart() {
+  const { data } = await _supabase.from('pipeline').select('stage, estimated_value');
+  const stages = { prospect: 0, negociation: 0, gagne: 0, perdu: 0 };
+
+  (data || []).forEach((p) => { if (stages[p.stage] !== undefined) stages[p.stage] += Number(p.estimated_value || 0); });
+
+  const ctx = document.getElementById('chart-pipeline');
+  const chartData = {
+    labels: ['Lead', 'Negotiation', 'Won', 'Lost'],
+    datasets: [{ label: 'Est. Value ($)', data: [stages.prospect, stages.negociation, stages.gagne, stages.perdu], backgroundColor: ['#64748b', '#3b82f6', '#10b981', '#f43f5e'], borderRadius: 4 }]
+  };
+
+  if (pipelineChart) { pipelineChart.data = chartData; pipelineChart.update('none'); return; }
+  pipelineChart = new Chart(ctx, { type: 'bar', data: chartData, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+}
+</script>
+</body>
+</html>
